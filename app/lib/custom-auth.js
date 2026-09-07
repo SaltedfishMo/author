@@ -5,6 +5,7 @@
 // 服务器地址可配置：默认读环境变量 NEXT_PUBLIC_AUTHOR_CLOUD_URL，允许用户覆盖
 // （自托管），支持公开开源分发。
 
+import { anySignal, timeoutSignal } from './abort-signal-compat';
 import { localizedError } from './runtime-i18n';
 import {
     isOfficialAuthorCloudUrl,
@@ -359,7 +360,7 @@ export async function signOutCustom({ authContext } = {}) {
         try {
             const response = await fetch(`${context.serverUrl}/api/auth/logout`, {
                 method: 'POST', headers: { 'content-type': 'application/json', 'x-author-product': context.product, authorization: `Bearer ${token}` },
-                body: '{}', redirect: 'error', signal: AbortSignal.timeout(10000),
+                body: '{}', redirect: 'error', signal: timeoutSignal(10000),
             });
             await response.body?.cancel();
         } catch {}
@@ -411,7 +412,7 @@ export async function authorizedFetch(path, { method = 'GET', body, query, authC
     const context = authContext || getCustomAuthContext();
     assertCustomAuthContext(context);
     if (!context.userId || !_session?.accessToken) throw localizedError('请先登录', 'Please sign in first.', 'Сначала войдите в аккаунт.');
-    const requestSignal = signal ? AbortSignal.any([context.signal, signal]) : context.signal;
+    const requestSignal = signal ? anySignal([context.signal, signal]) : context.signal;
     let sentToken;
     const build = () => {
         assertCustomAuthContext(context);

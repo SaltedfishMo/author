@@ -10,6 +10,7 @@
 //
 // 数据安全铁律见 custom-sync-core.js 顶部说明。
 
+import { anySignal } from './abort-signal-compat';
 import { isSyncableKey } from './sync-key-policy';
 import { authorizedFetch, isCustomSignedIn, getCustomAuthContext, assertCustomAuthContext, isCustomAuthContextCurrent } from './custom-auth';
 import { fingerprint, parseKey, itemToKey, diffKeyToItems, matchPushResults, mergeItemsIntoLocal, latestItemsById, locallyChangedItemIds } from './custom-sync-core';
@@ -52,7 +53,7 @@ function operationIsCurrent(context) {
 function serializeSync(operation) {
     const auth = getCustomAuthContext();
     if (!auth) return Promise.resolve(0);
-    const context = { auth, generation: _syncGeneration, signal: AbortSignal.any([auth.signal, _syncController.signal]) };
+    const context = { auth, generation: _syncGeneration, signal: anySignal([auth.signal, _syncController.signal]) };
     const result = _syncOperation.then(() => {
         assertOperation(context);
         ensureAccountBound(auth);
