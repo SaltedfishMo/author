@@ -22,9 +22,19 @@ on:
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: electron-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  verify:
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      publish: ${{ github.event_name == 'push' || inputs.publish_release }}
   build:
+    needs: verify
     permissions:
       contents: write # Required by this job's final Create Release step.
     # 🔒 仅在原始仓库运行，防止 fork 利用 Secrets
@@ -46,27 +56,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm test
-
-      - name: Check open-core boundary
-        run: npm run check:open-core-boundary
-
-      - name: Verify scanner with synthetic secrets
-        run: npm run test:secret-scanner
-
-      - name: Verify Electron package scanner
-        run: npm run test:electron-secret-scanner
-
-      - name: Scan current source
-        run: npm run check:secrets
-
-      - name: Scan full history
-        run: npm run check:secrets:history
 
       - name: Build Next.js
         run: npm run build

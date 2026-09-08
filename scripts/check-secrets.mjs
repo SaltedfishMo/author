@@ -7,6 +7,7 @@ import { installGitleaks, installArtifactConfig, pin } from './security/gitleaks
 import { expectedNextRuntimeKey } from './security/artifact-policy.mjs';
 import { snapshotArtifact, writeArtifactConfig } from './security/artifact-snapshot.mjs';
 import { createDependencyReviewer } from './security/reviewed-dependencies.mjs';
+import { pruneOlderScans } from './security/scan-retention.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 
@@ -117,6 +118,7 @@ export async function checkSecrets(mode, input, root = projectRoot, { alreadyExt
         // Report locations only; never print the matched value or surrounding text.
         console.log(JSON.stringify({ rule: finding.rule, file: path.relative(mode === 'artifact' ? scope.directory : target, finding.file).replaceAll('\\', '/'), line: finding.line, column: finding.column }));
     }
+    pruneOlderScans(reportsRoot, [reportDirectory, mode === 'artifact' ? scope.directory : undefined]);
     return report;
 }
 

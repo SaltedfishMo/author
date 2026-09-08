@@ -11,6 +11,11 @@ name: Docker Publish
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -28,29 +33,9 @@ on:
 
 jobs:
   verify:
-    if: github.repository == 'YuanShiJiLoong/author'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify source, tests, build, and open-core boundary
-        run: npm run check
-
-      - name: Verify scanner and scan source and history
-        run: npm run test:secret-scanner && npm run check:secrets && npm run check:secrets:history
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      publish: ${{ github.event_name == 'push' || inputs.publish_image }}
 
   docker:
     # 🔒 仅在原始仓库运行，防止 fork 利用 Secrets

@@ -43,6 +43,8 @@ import { useI18n } from '../lib/useI18n';
 import { localizeApiError } from '../lib/api-error-i18n';
 import { apiPath } from '../lib/api-base';
 import { testAiConnection } from '../lib/ai-direct';
+import { getEmbeddingProviderConfig } from '../lib/embedding-provider-config';
+import { getBuiltInEndpointName } from '../lib/built-in-labels';
 import SettingsItemEditor from './SettingsItemEditor';
 import { getModeRolePrompt } from '../lib/context-engine';
 import { downloadFile, downloadBlob } from '../lib/project-io';
@@ -2124,7 +2126,7 @@ function ApiConfigForm({ data, onChange }) {
         try {
             const pType = instanceCfg?.providerType || data.provider;
             setTestStatus(await testAiConnection({ ...data, provider: pType, providerType: pType }));
-        } catch { setTestStatus({ success: false, error: t('apiConfig.networkError') }); }
+        } catch { setTestStatus({ success: false, translationKey: 'apiConfig.networkError' }); }
     };
 
     const handleFetchModels = async () => {
@@ -2133,9 +2135,9 @@ function ApiConfigForm({ data, onChange }) {
             const pType = instanceCfg?.providerType || data.provider;
             const res = await fetch(apiPath('/api/ai/models'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: data.apiKey, baseUrl: data.baseUrl, provider: pType, proxyUrl: data.proxyUrl }) });
             const result = await res.json();
-            if (result.error) { setFetchedModels(null); setTestStatus({ success: false, error: localizeApiError(result, text) }); }
+            if (result.error) { setFetchedModels(null); setTestStatus({ ...result, success: false }); }
             else { setFetchedModels(result.models || []); setShowModelModal(true); setModelSearch(''); }
-        } catch { setFetchedModels(null); setTestStatus({ success: false, error: t('apiConfig.fetchModelsFailed') }); }
+        } catch { setFetchedModels(null); setTestStatus({ success: false, translationKey: 'apiConfig.fetchModelsFailed' }); }
     };
 
     const handleFetchEmbedModels = async () => {
@@ -2149,16 +2151,16 @@ function ApiConfigForm({ data, onChange }) {
             const res = await fetch(apiPath('/api/ai/models'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: embedKey, baseUrl: embedBase, provider: data.embedProvider, embedOnly: true, proxyUrl: data.proxyUrl, allowKeyless }) });
             const result = await res.json();
             // 结果就近显示在向量模型区下方（旧逻辑写到对话模型的 testStatus，离这里几百行，用户看不到）
-            if (result.error) { setFetchedEmbedModels(null); setEmbedFetchMsg({ type: 'error', text: t('apiConfig.embedApiPrefix') + localizeApiError(result, text) }); }
+            if (result.error) { setFetchedEmbedModels(null); setEmbedFetchMsg({ type: 'error', payload: result }); }
             else {
                 const embedModels = result.models || [];
                 setFetchedEmbedModels(embedModels);
                 if (embedModels.length > 0) {
-                    setEmbedFetchMsg({ type: 'success', text: text(`已获取 ${embedModels.length} 个向量模型`, `Fetched ${embedModels.length} embedding models`, `Получено моделей: ${embedModels.length}`) });
+                    setEmbedFetchMsg({ type: 'success', count: embedModels.length });
                 }
                 // length===0（连通但无嵌入模型）由下方“未找到嵌入模型”提示处理
             }
-        } catch { setFetchedEmbedModels(null); setEmbedFetchMsg({ type: 'error', text: t('apiConfig.fetchEmbedModelsFailed') }); }
+        } catch { setFetchedEmbedModels(null); setEmbedFetchMsg({ type: 'error' }); }
     };
 
     const handleRebuildEmbeddings = async () => {
@@ -2358,7 +2360,7 @@ function ApiConfigForm({ data, onChange }) {
                                                         onClick={() => handleProviderChange(instKey)}
                                                         style={{ paddingLeft: 24, fontSize: 12 }}
                                                     >
-                                                        <span className="provider-item-name" style={{ fontSize: 12 }}>↳ {instCfg.instanceName || instKey}</span>
+                                                        <span className="provider-item-name" style={{ fontSize: 12 }}>↳ {getBuiltInEndpointName(instCfg.instanceName, text) || instKey}</span>
                                                         {instHasKey && <span className="provider-item-check"><CheckCircle2 size={11} /></span>}
                                                     </button>
                                                 );
@@ -2410,7 +2412,7 @@ function ApiConfigForm({ data, onChange }) {
                         <div style={{ flex: 1 }}>
                             <span style={{ fontSize: 15, fontWeight: 600 }}>{getProviderLabel(currentProvider, text)}</span>
                             {instanceCfg?.instanceName && (
-                                <span style={{ fontSize: 12, color: 'var(--accent)', marginLeft: 8, fontWeight: 500 }}>— {instanceCfg.instanceName}</span>
+                                <span style={{ fontSize: 12, color: 'var(--accent)', marginLeft: 8, fontWeight: 500 }}>— {getBuiltInEndpointName(instanceCfg.instanceName, text)}</span>
                             )}
                             <div>
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{data.provider}</span>
@@ -2423,7 +2425,8 @@ function ApiConfigForm({ data, onChange }) {
                                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                                 onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
                                 onClick={() => {
-                                    if (!confirm(text(`确认删除端点「${instanceCfg.instanceName || data.provider}」？`, `Delete endpoint "${instanceCfg.instanceName || data.provider}"?`, `Удалить endpoint «${instanceCfg.instanceName || data.provider}»?`))) return;
+                                    const instanceLabel = getBuiltInEndpointName(instanceCfg.instanceName, text) || data.provider;
+                                    if (!confirm(text(`确认删除端点「${instanceLabel}」？`, `Delete endpoint "${instanceLabel}"?`, `Удалить endpoint «${instanceLabel}»?`))) return;
                                     deleteProviderInstance(data.provider);
                                     const settings = getProjectSettings();
                                     onChange({ ...settings.apiConfig });
@@ -2735,7 +2738,7 @@ function ApiConfigForm({ data, onChange }) {
                         </button>
                         {testStatus && testStatus !== 'loading' && (
                             <span style={{ fontSize: 12, color: testStatus.success ? 'var(--success)' : 'var(--error)', alignSelf: 'center' }}>
-                                {testStatus.success ? <><CheckCircle2 size={12} style={{ marginRight: 4 }} />{text('连接成功', 'Connected', 'Подключено')}</> : <><XCircle size={12} style={{ marginRight: 4 }} />{localizeApiError(testStatus, text) || text('连接失败', 'Connection failed', 'Ошибка подключения')}</>}
+                                {testStatus.success ? <><CheckCircle2 size={12} style={{ marginRight: 4 }} />{text('连接成功', 'Connected', 'Подключено')}</> : <><XCircle size={12} style={{ marginRight: 4 }} />{testStatus.translationKey ? t(testStatus.translationKey) : (localizeApiError(testStatus, text) || text('连接失败', 'Connection failed', 'Ошибка подключения'))}</>}
                             </span>
                         )}
                     </div>
@@ -2942,8 +2945,7 @@ function ApiConfigForm({ data, onChange }) {
                                 <div key={section.group}>
                                     <div className="provider-group-header">{getProviderGroupLabel(section.group, text)}</div>
                                     {items.map(p => {
-                                        const embedCfg = data.embedProviderConfigs?.[p.key];
-                                        const hasKey = !!(embedCfg?.apiKey || (data.embedProvider === p.key && (data.embedApiKey || data.apiKey)));
+                                        const isConfigured = getEmbeddingProviderConfig(data, p.key, p).isConfigured;
                                         return (
                                             <button
                                                 key={p.key}
@@ -2951,7 +2953,7 @@ function ApiConfigForm({ data, onChange }) {
                                                 onClick={() => handleEmbedProviderChange(p.key)}
                                             >
                                                 <span className="provider-item-name">{getProviderLabel(p, text)}</span>
-                                                {hasKey && <span className="provider-item-check"><CheckCircle2 size={12} /></span>}
+                                                {isConfigured && <span className="provider-item-check"><CheckCircle2 size={12} /></span>}
                                             </button>
                                         );
                                     })}
@@ -3007,7 +3009,13 @@ function ApiConfigForm({ data, onChange }) {
                                 );
                             })()}
                             {embedFetchMsg && (
-                                <div style={{ fontSize: 11, color: embedFetchMsg.type === 'success' ? 'var(--success)' : 'var(--error)', margin: '6px 0 4px' }}>{embedFetchMsg.text}</div>
+                                <div style={{ fontSize: 11, color: embedFetchMsg.type === 'success' ? 'var(--success)' : 'var(--error)', margin: '6px 0 4px' }}>
+                                    {embedFetchMsg.type === 'success'
+                                        ? text(`已获取 ${embedFetchMsg.count} 个向量模型`, `Fetched ${embedFetchMsg.count} embedding models`, `Получено моделей: ${embedFetchMsg.count}`)
+                                        : (embedFetchMsg.payload
+                                            ? t('apiConfig.embedApiPrefix') + localizeApiError(embedFetchMsg.payload, text)
+                                            : t('apiConfig.fetchEmbedModelsFailed'))}
+                                </div>
                             )}
                             {Array.isArray(fetchedEmbedModels) && fetchedEmbedModels.length === 0 && (
                                 <div style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 4px' }}>{text('未找到嵌入模型，可手动输入模型名（如 embedding-3）', 'No embedding models found. Enter a model name manually (e.g. embedding-3)', 'Модели эмбеддингов не найдены. Введите имя модели вручную (например, embedding-3)')}</div>

@@ -65,7 +65,10 @@ export async function cloudFixture(t, { saved = session(), serverUrl = SERVER_A 
     const authInstance = `${authUrl.href}?fixture=${id}`;
     function hooks() {
         return registerHooks({ resolve(specifier, context, nextResolve) {
-            if (context.parentURL === authInstance && specifier === './runtime-i18n') return { url: i18nUrl, shortCircuit: true };
+            if (context.parentURL === authInstance) {
+                if (specifier === './runtime-i18n') return { url: i18nUrl, shortCircuit: true };
+                if (specifier.startsWith('./') && !/[.][cm]?js$/.test(specifier)) return nextResolve(new URL(specifier + '.js', authUrl).href, context);
+            }
             if (context.parentURL?.startsWith(syncUrl.href)) {
                 if (specifier === './custom-auth') return { url: authInstance, shortCircuit: true };
                 if (specifier.startsWith('./')) return nextResolve(new URL(`${specifier}.js`, syncUrl).href, context);

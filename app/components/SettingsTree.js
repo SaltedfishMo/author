@@ -8,7 +8,7 @@ import {
     Sparkles, Heart, Star, Shield, Zap, Feather, Compass, Flag, Tag, Layers
 } from 'lucide-react';
 import { useI18n } from '../lib/useI18n';
-import { getBuiltInFolderLabel, getBuiltInWorkName } from '../lib/settings';
+import { getBuiltInNodeLabel } from '../lib/built-in-labels';
 
 // 分类的颜色和标识
 const CATEGORY_STYLES = {
@@ -59,28 +59,6 @@ const ICON_MAP = {
     'tag': Tag,
     'layers': Layers,
 };
-
-// 可选图标列表（用于图标选择器）
-export const ICON_PICKER_OPTIONS = [
-    { name: 'user', label: '人物' },
-    { name: 'map-pin', label: '地点' },
-    { name: 'globe', label: '世界' },
-    { name: 'gem', label: '宝石' },
-    { name: 'clipboard-list', label: '大纲' },
-    { name: 'ruler', label: '规则' },
-    { name: 'book-open', label: '书籍' },
-    { name: 'settings', label: '设置' },
-    { name: 'sparkles', label: '魔法' },
-    { name: 'heart', label: '爱心' },
-    { name: 'star', label: '星标' },
-    { name: 'shield', label: '盾牌' },
-    { name: 'zap', label: '闪电' },
-    { name: 'feather', label: '羽毛' },
-    { name: 'compass', label: '罗盘' },
-    { name: 'flag', label: '旗帜' },
-    { name: 'tag', label: '标签' },
-    { name: 'layers', label: '图层' },
-];
 
 // 获取节点应该显示的图标组件
 function getNodeIcon(node, nodes) {
@@ -187,11 +165,7 @@ function TreeNode({ node, nodes, selectedId, onSelect, onAdd, onDelete, onRename
                     />
                 ) : (
                     <span className="tree-node-name">
-                        {isWork
-                            ? getBuiltInWorkName(node.name, text)
-                            : (node.type === 'folder' || node.type === 'special')
-                                ? getBuiltInFolderLabel(node.name, text)
-                                : node.name}
+                        {getBuiltInNodeLabel(node, text)}
                     </span>
                 )}
 
@@ -273,6 +247,7 @@ export default function SettingsTree({
     expandedCategory = null,
     onExpandComplete,
 }) {
+    const { text } = useI18n();
     const [collapsedIds, setCollapsedIds] = useState(new Set());
 
     const toggleCollapse = (id) => {
@@ -364,7 +339,7 @@ export default function SettingsTree({
                     }}
                 >
                     <Plus size={13} />
-                    新建分类
+                    {text('新建分类', 'New category', 'Новая категория')}
                 </button>
             )}
         </div>

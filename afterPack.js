@@ -5,6 +5,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const { prepareStandaloneMetadata } = require('./scripts/standalone-metadata.cjs');
 
 function copyDirSync(src, dest) {
     if (!fs.existsSync(src)) return;
@@ -40,8 +41,7 @@ exports.default = async function afterPack(context) {
     console.log(`[afterPack] To ${targetNodeModules}`);
 
     if (!fs.existsSync(standaloneNodeModules)) {
-        console.error('[afterPack] ERROR: standalone node_modules not found!');
-        return;
+        throw new Error('Standalone node_modules not found.');
     }
 
     copyDirSync(standaloneNodeModules, targetNodeModules);
@@ -54,4 +54,7 @@ exports.default = async function afterPack(context) {
     } else {
         console.warn(`[afterPack] WARNING: Next.js route runtime dir not found: ${sourceNextServerRuntime}`);
     }
+
+    prepareStandaloneMetadata(path.join(appOutDir, 'resources', 'standalone'));
+    console.log('[afterPack] Standalone metadata prepared for the installation directory');
 };

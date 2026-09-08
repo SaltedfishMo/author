@@ -8,7 +8,8 @@ import {
     renameSession, switchSession, getActiveSession, addMessage, editMessage as editMsgFn,
     deleteMessage as deleteMsgFn, createBranch, switchVariant, replaceMessages
 } from '../lib/chat-sessions';
-import { getProjectSettings, getChatApiConfig, getActiveWorkId, getSettingsNodes, addSettingsNode, updateSettingsNode, deleteSettingsNode } from '../lib/settings';
+import { getProjectSettings, saveProjectSettings, getChatApiConfig, getActiveWorkId, getSettingsNodes, addSettingsNode, updateSettingsNode, deleteSettingsNode } from '../lib/settings';
+import { getContextGroupId, groupContextItems, getSelectedContextChapterIds, isContextItemSelected, toggleContextReferences } from '../lib/context-selection';
 import { saveGenerationArchive } from '../lib/generation-archive';
 import { useAppStore } from '../store/useAppStore';
 import ChatMarkdown from './ChatMarkdown';
@@ -1219,7 +1220,7 @@ export default function AiSidebar({ onInsertText }) {
 
             const apiEndpoint = resolveAiEndpoint(apiConfig);
 
-            const context = await buildContext(activeChapterId, text, contextSelection.size > 0 ? contextSelection : null, targetWorkId, inputTokenBudget);
+            const context = await buildContext(activeChapterId, text, contextSelection, targetWorkId, inputTokenBudget);
             const systemPrompt = compileSystemPrompt(context, 'chat');
             const historyForApi = selectedHistory.map(m => `${m.role === 'user' ? t('aiSidebar.roleYou') : t('aiSidebar.roleAi')}: ${m.content}`).join('\n');
             const requestText = settingsGeneration
@@ -1353,7 +1354,7 @@ export default function AiSidebar({ onInsertText }) {
 
             const apiEndpoint = resolveAiEndpoint(apiConfig);
 
-            const context = await buildContext(activeChapterId, userMsg.content, contextSelection.size > 0 ? contextSelection : null, targetWorkId, inputTokenBudget);
+            const context = await buildContext(activeChapterId, userMsg.content, contextSelection, targetWorkId, inputTokenBudget);
             const systemPrompt = compileSystemPrompt(context, 'chat');
             const historyForApi = priorHistory
                 .filter(m => (m.role === 'user' || m.role === 'assistant') && contextSelection?.has(getDialogueSelectionId(m.id)))
@@ -1911,21 +1912,14 @@ export default function AiSidebar({ onInsertText }) {
         : generationArchive;
 
     // 参考 Tab 分组
-    const groupedItems = useMemo(() => {
-        const groups = {};
-        const filteredItems = contextSearch
-            ? contextItems.filter(it => it.name.toLowerCase().includes(contextSearch.toLowerCase()))
-            : contextItems;
-        for (const item of filteredItems) {
-            if (item._empty) continue;
-            // 不显示没有创建条目的空分类
-            if (item.tokens === 0 && item.name === '（暂无条目）') continue;
-            const g = item.group || '其他';
-            if (!groups[g]) groups[g] = [];
-            groups[g].push(item);
-        }
-        return groups;
-    }, [contextItems, contextSearch]);
+    const groupedItems = useMemo(() => groupContextItems(contextItems, contextSearch), [contextItems, contextSearch]);
+    const selectedChapterIds = useMemo(() => getSelectedContextChapterIds(contextItems, contextSelection), [contextItems, contextSelection]);
+    const excludeStrikethroughFromAi = getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true;
+    const updateExcludeStrikethrough = useCallback((checked) => {
+        const settings = getProjectSettings();
+        saveProjectSettings({ ...settings, apiConfig: { ...settings.apiConfig, excludeStrikethroughFromAi: checked } });
+        incrementSettingsVersion();
+    }, [incrementSettingsVersion]);
 
     // Token 统计
     const totalSelectedTokens = useMemo(() => {
@@ -1937,31 +1931,17 @@ export default function AiSidebar({ onInsertText }) {
     // 参考条目切换
     const toggleContextItem = useCallback((itemId) => {
         const item = contextItems.find(it => it.id === itemId);
-        if (item?.alwaysInclude) return;
-        setContextSelection(prev => {
-            const next = new Set(prev);
-            if (next.has(itemId)) next.delete(itemId);
-            else next.add(itemId);
-            return next;
-        });
+        if (!item) return;
+        setContextSelection(prev => toggleContextReferences(prev, [item], contextItems));
     }, [contextItems, setContextSelection]);
 
     const toggleGroup = useCallback((groupName) => {
-        const items = groupedItems[groupName] || [];
-        setContextSelection(prev => {
-            const next = new Set(prev);
-            const allChecked = items.every(it => it.alwaysInclude || prev.has(it.id));
-            items.forEach(it => {
-                if (it.alwaysInclude) {
-                    next.add(it.id);
-                    return;
-                }
-                if (allChecked) next.delete(it.id);
-                else next.add(it.id);
-            });
-            return next;
-        });
-    }, [groupedItems, setContextSelection]);
+        const visibleItems = groupedItems[groupName] || [];
+        const items = visibleItems.some(item => '_volumeId' in item)
+            ? contextItems.filter(item => getContextGroupId(item) === groupName)
+            : visibleItems;
+        setContextSelection(prev => toggleContextReferences(prev, items, contextItems));
+    }, [contextItems, groupedItems, setContextSelection]);
 
     const toggleCollapse = useCallback((groupName) => {
         setCollapsedGroups(prev => {
@@ -1974,7 +1954,7 @@ export default function AiSidebar({ onInsertText }) {
 
     const selectAll = useCallback(() => {
         if (!contextItems) return;
-        setContextSelection(new Set(contextItems.map(it => it.id)));
+        setContextSelection(new Set(contextItems.filter(it => !it._empty).map(it => it.id)));
     }, [contextItems, setContextSelection]);
 
     const selectNone = useCallback(() => {
@@ -2789,6 +2769,15 @@ export default function AiSidebar({ onInsertText }) {
                             </div>
 
                             {/* 搜索框 */}
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', fontSize: 12, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={excludeStrikethroughFromAi} onChange={e => updateExcludeStrikethrough(e.target.checked)} />
+                                <span>
+                                    {tx('AI 忽略删除线文字', 'Exclude strikethrough text from AI', 'Не отправлять зачёркнутый текст ИИ')}
+                                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>
+                                        {tx('原文保留；含删除线的章节使用过滤后的正文作为参考。', 'Original text is kept; chapters with strikethrough use filtered text as reference.', 'Исходный текст сохраняется; главы с зачёркиванием используются в очищенном виде.')}
+                                    </span>
+                                </span>
+                            </label>
                             <div className="context-search-bar">
                                 <input
                                     className="context-search-input"
@@ -2811,11 +2800,14 @@ export default function AiSidebar({ onInsertText }) {
                                 )}
                                 {Object.entries(groupedItems).map(([groupName, items]) => {
                                     const isCollapsed = collapsedGroups.has(groupName);
-                                    const checkedCount = items.filter(it => it.alwaysInclude || contextSelection?.has(it.id)).length;
-                                    const groupTokens = items
+                                    const selectionItems = items.some(item => '_volumeId' in item)
+                                        ? contextItems.filter(item => getContextGroupId(item) === groupName)
+                                        : items;
+                                    const checkedCount = selectionItems.filter(it => isContextItemSelected(it, contextSelection, selectedChapterIds)).length;
+                                    const groupTokens = selectionItems
                                         .filter(it => it.alwaysInclude || contextSelection?.has(it.id))
                                         .reduce((sum, it) => sum + it.tokens, 0);
-                                    const allGroupChecked = checkedCount === items.length;
+                                    const allGroupChecked = checkedCount === selectionItems.length;
 
                                     return (
                                         <div key={groupName} className="context-group">
@@ -2830,7 +2822,7 @@ export default function AiSidebar({ onInsertText }) {
                                                     type="checkbox"
                                                     checked={allGroupChecked && items.length > 0}
                                                     ref={el => {
-                                                        if (el) el.indeterminate = checkedCount > 0 && checkedCount < items.length;
+                                                        if (el) el.indeterminate = checkedCount > 0 && checkedCount < selectionItems.length;
                                                     }}
                                                     onChange={(e) => {
                                                         e.stopPropagation();
@@ -2840,7 +2832,7 @@ export default function AiSidebar({ onInsertText }) {
                                                     className="context-group-check"
                                                 />
                                                 <span className="context-group-name">
-                                                    {groupName} ({checkedCount}/{items.length})
+                                                    {items[0].group || tx('其他', 'Other', 'Другое')} ({checkedCount}/{selectionItems.length})
                                                 </span>
                                                 <span className="context-group-tokens">
                                                     {groupTokens > 0 ? `${groupTokens.toLocaleString()}t` : '—'}
@@ -2852,7 +2844,7 @@ export default function AiSidebar({ onInsertText }) {
                                                         <label key={item.id} className="context-item">
                                                             <input
                                                                 type="checkbox"
-                                                                checked={item.alwaysInclude || contextSelection?.has(item.id) || false}
+                                                                checked={isContextItemSelected(item, contextSelection, selectedChapterIds)}
                                                                 onChange={() => toggleContextItem(item.id)}
                                                                 disabled={item.alwaysInclude}
                                                                 className="context-item-check"

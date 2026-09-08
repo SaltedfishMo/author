@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { checkSecrets } from './check-secrets.mjs';
+import { pruneOlderScans } from './security/scan-retention.mjs';
 
 function docker(args) {
     const result = spawnSync('docker', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000, windowsHide: true });
@@ -26,6 +27,7 @@ try {
     writeFileSync(path.join(exported, 'scope.json'), `${JSON.stringify({ image: inspected.Id, container: name, paths: ['/app', 'image.Config'], excludes: ['base OS filesystem', 'deleted files in older image layers'] }, null, 2)}\n`);
     const report = await checkSecrets('artifact', exported);
     console.log(`Docker application scan: ${inspected.Id}; unstarted inspection container retained: ${name}`);
+    pruneOlderScans(root, [exported]);
     if (report.blockingFindings.length) process.exitCode = 1;
 } catch (error) {
     console.error(error.message);

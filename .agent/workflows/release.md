@@ -17,7 +17,7 @@ description: 发版流程 — 提交代码、更新版本号、打 tag、推送�
 .\scripts\release-preflight.ps1 -MobileOnlyHotfix
 ```
 
-脚本通过不代表可以跳过本文档；它只负责防止遗漏隐藏流程文件，并提醒必须先阅读本发版流程。
+完整发版模式还会运行与 CI 相同的全仓库 lint 检查。任何失败都必须在提交前修复，不能只用局部文件检查代替。后续改动完成后、提交前需再执行一次预检。脚本通过不代表可以跳过本文档及安全审查。
 
 2. 检查帮助页面（HelpPanel.js）和开局引导（WelcomeModal.js / TourOverlay.js）以及所有语言的readme部分是否需要更新：
    - 本版本是否新增/修改了用户可感知的功能？
@@ -125,7 +125,7 @@ git status --short
    - 示例：`修复了云端断网时的卡顿崩溃 | Fixed stuttering crash in offline cloud modes`
    - 注意：只写标题正文即可，**切勿带版本号前缀**（例如不要写 `Author vX.Y.Z — ...`，构建脚本会自动拼接版本号）。
 
-> **⚠️ 紧急修复（版本号不变）的特殊流程：** 写完上述两个文件后，跳过下方的"更新版本号"步骤，直接进入"提交与推送"。打 tag 时使用 `git tag -f vX.Y.Z` 强制覆盖旧 tag，推送时使用 `git push origin vX.Y.Z -f`。
+> **紧急修复（版本号不变）：** 仍需先推送修复提交并等待该提交的完整 CI 通过。调整已有标签会改写公开引用，必须明确说明旧、新提交及影响，并取得用户对这次标签调整的单独确认。不得默认强推或删除标签。
 
 ## 更新版本号
 
@@ -150,23 +150,22 @@ git add -A
 git commit -m "vX.Y.Z: 简要描述本次更新内容"
 ```
 
-15. 打 git tag（如果版本号不变则强制覆盖旧 tag）：
+15. 先推送代码，等待该提交的完整 CI 通过：
 ```bash
-# 新版本号：
+git push origin main
+git rev-parse HEAD
+gh run list --workflow ci.yml --commit <上一步的完整提交SHA>
+gh run watch <对应的CI运行ID> --exit-status
+```
+
+必须核对 CI 的提交 SHA 与待发版 HEAD 相同；不能用更早提交的绿色检查作为依据。CI 失败时先修复，禁止提前触发安装包或镜像构建。
+
+16. CI 通过后创建并推送新版本标签：
+```bash
 git tag vX.Y.Z
-
-# 或版本号不变的紧急修复（强制覆盖）：
-git tag -f vX.Y.Z
+git push origin vX.Y.Z
 ```
-
-16. 推送代码和 tag（如果版本号不变则强制推送 tag）：
-```bash
-# 新版本号：
-git push origin main && git push origin vX.Y.Z
-
-# 或版本号不变的紧急修复（强制推送）：
-git push origin main && git push origin vX.Y.Z -f
-```
+已有标签按上面的单独确认规则处理。只重试已有提交的暂时性下载或网络失败时，使用失败运行的重试功能，不重新推送代码或重复创建构建。
 
 17. **提交并推送移动端仓库**（确保 CI 能拿到新的 versionCode）：
 ```bash
@@ -179,17 +178,19 @@ cd ..
 
 ## 自动构建
 
-推送 `v*` tag 后，GitHub Actions 会自动触发：
+推送 `v1.2.*` tag 后，GitHub Actions 会先通过共享的 Release CI Gate 验证该提交的 CI，再触发：
 
 - **`electron-build.yml`**：构建 Windows `.exe` 安装包 → 创建 GitHub Release（双语格式）
 - **`docker-publish.yml`**：同样由 `v*` tag 触发构建 Docker 镜像 → 推送到 Docker Hub
+
+公共源码、测试和历史扫描由同一次 CI 完成，打包流程复用其结果。Windows 的实际安装包扫描和 Docker 的实际镜像运行检查、扫描仍在各自发布前执行。主分支 CI 不重复构建 Docker 镜像；PR 和合并队列保留镜像验证。手动发布必须选中与 package.json 版本一致的标签，不能从 main 直接发布。
 
 构建进度：https://github.com/YuanShiJiLoong/author/actions
 
 18. **桌面端 Release 创建成功后**，触发移动端 CI 构建 APK 并上传到同一 Release：
 ```bash
 cd mobile
-gh workflow run "Android APK to Author 1.2 Public Release" -f release_tag=vX.Y.Z
+gh workflow run "Android APK to Author 1.2 Public Release" -f release_tag=vX.Y.Z -F publish_release=true
 cd ..
 ```
 - CI 会从 `pubspec.yaml` 读取 versionCode（如 1228），构建签名 APK
@@ -233,4 +234,4 @@ cd ..
 - **敏感文件**：`docs/`、`.env`、`firebase-debug.log` 等均被 `.gitignore` 忽略，不会进入 git 仓库和 Release 的 Source code 包。临时计划、草稿、内部说明优先统一放入 `docs/`，不要依赖过宽的名字匹配规则（如 `*secret*`、`*credential*`）来兜底。
 - **移动端隔离**：`/mobile` 目录、`*.dart` 文件、`home_screen.html` 等移动端非公开资产均被 `.gitignore` 忽略。每次发版前的第 5 步会强制扫描确认无泄漏，绝不可混入开源代码。
 - **Docker 安全**：Docker 使用多阶段构建，最终镜像只含构建产物（`.next/standalone`），不含源码和配置文件。
-- **如果构建失败**：去 Actions 页面查看日志，修复后用 `git tag -f vX.Y.Z && git push origin vX.Y.Z -f` 强制更新 tag 重新触发。
+- **如果构建失败**：先定位失败步骤。网络等暂时性问题只重试失败的运行；代码问题先修复并等待新提交 CI 通过，再处理版本标签。改写已有标签必须取得明确确认，不能以失败为理由自动强推。

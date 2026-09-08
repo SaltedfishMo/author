@@ -80,5 +80,18 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
+if (-not $MobileOnlyHotfix) {
+  Write-Section "Full repository lint gate"
+  Push-Location $repoRoot
+  try {
+    & node scripts/check-lint.mjs
+    if ($LASTEXITCODE -ne 0) {
+      throw "Release preflight failed: the same lint gate used by CI must pass before publishing."
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
 Write-Host ""
 Write-Host "Preflight complete. Continue only after the workflow has been read and the release mode is confirmed."

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -95,11 +95,14 @@ test('only exact unused Next.js runtime fields are classified; adjacent credenti
     const next = path.join(artifact, '.next');
     mkdirSync(path.join(next, 'server'), { recursive: true });
     const manifest = path.join(next, 'server/server-reference-manifest.json');
-    const actions = { node: {}, edge: {}, encryptionKey: randomBytes(32).toString('base64') };
+    // Fixed synthetic values keep this policy test independent of random-key
+    // entropy and prefixes that the pinned scanner's generic rule may not match.
+    const runtimeKey = (name, encoding) => createHash('sha256').update(`synthetic-next-runtime:${name}`).digest(encoding);
+    const actions = { node: {}, edge: {}, encryptionKey: runtimeKey('actions', 'base64') };
     writeFileSync(manifest, JSON.stringify(actions, null, 2));
     writeFileSync(path.join(next, 'prerender-manifest.json'), JSON.stringify({ preview: {
-        previewModeSigningKey: randomBytes(32).toString('hex'),
-        previewModeEncryptionKey: randomBytes(32).toString('hex'),
+        previewModeSigningKey: runtimeKey('preview-signing', 'hex'),
+        previewModeEncryptionKey: runtimeKey('preview-encryption', 'hex'),
         token: canary,
     } }, null, 2));
     const findings = scan('artifact', artifact, 'next-report');
