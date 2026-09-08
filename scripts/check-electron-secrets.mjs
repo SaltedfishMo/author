@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import path from 'node:path';
 import { extractAll } from '@electron/asar';
 import { checkSecrets } from './check-secrets.mjs';
+import { pruneOlderScans } from './security/scan-retention.mjs';
 
 try {
     if (!process.argv[2]) throw new Error('Usage: node scripts/check-electron-secrets.mjs UNPACKED_APP_DIRECTORY');
@@ -16,6 +17,7 @@ try {
     const main = await checkSecrets('artifact', extracted);
     // The exact ASAR file has already been unpacked and scanned above.
     const runtime = await checkSecrets('artifact', resources, undefined, { alreadyExtractedFiles: [archive] });
+    pruneOlderScans(root, [extracted]);
     if (main.blockingFindings.length || runtime.blockingFindings.length) process.exitCode = 1;
 } catch (error) {
     console.error(error.message);

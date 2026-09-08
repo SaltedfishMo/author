@@ -8,6 +8,8 @@ import { getEmbedding, cosineSimilarity } from './embeddings';
 import { estimateTokenCount } from 'tokenx';
 import { buildChapterSynopsisBriefText, buildChapterSynopsisText, hasChapterSynopsis, stripChapterHtml } from './chapter-synopsis';
 import { buildChapterMemoryGroupText, getChapterMemoryGroups, hasChapterMemoryGroup } from './chapter-memory-groups';
+import { prepareChaptersForAi, filterMemoryGroupsForAi } from './ai-reference-content';
+import { getChapterReferenceGroups } from './context-selection';
 
 function getRuntimeLanguage(explicitLanguage) {
     if (explicitLanguage) return explicitLanguage;
@@ -110,7 +112,8 @@ export async function getContextItems(activeChapterId, chaptersOverride, workId 
     const targetWorkId = workId || getActiveWorkId();
     const language = getRuntimeLanguage();
     const tr = (zh, en, ru = en) => promptText(language, zh, en, ru);
-    const chapters = chaptersOverride || await getChapters(targetWorkId);
+    const chapters = prepareChaptersForAi(chaptersOverride || await getChapters(targetWorkId), settings.apiConfig?.excludeStrikethroughFromAi === true);
+    const chapterGroups = getChapterReferenceGroups(chapters, tr);
     const currentIndex = chapters.findIndex(ch => ch.id === activeChapterId);
 
     // getSettingsNodes() 已按当前作品过滤
@@ -179,7 +182,7 @@ export async function getContextItems(activeChapterId, chaptersOverride, workId 
 
     const previousEntry = getPreviousRealChapterEntry(chapters, currentIndex);
     const previousAnchorChapterId = previousEntry?.chapter?.id || null;
-    const memoryGroups = await getChapterMemoryGroups(targetWorkId);
+    const memoryGroups = filterMemoryGroupsForAi(await getChapterMemoryGroups(targetWorkId), chapters);
     const relevantMemoryGroups = getRelevantMemoryGroups(memoryGroups, chapters, currentIndex);
     const defaultMemoryGroups = relevantMemoryGroups.filter(group => group.enabledByDefault);
     const memoryCoveredChapterIds = getCoveredChapterIds(defaultMemoryGroups);
@@ -188,61 +191,60 @@ export async function getContextItems(activeChapterId, chaptersOverride, workId 
     for (const group of relevantMemoryGroups) {
         items.push({
             id: `memory-group-${group.id}`,
-            group: tr('章节', 'Chapters', 'Главы'),
+            group: tr('章节概要', 'Chapter summaries', 'Сводки глав'),
+            groupId: 'chapter-summaries',
             name: `${group.name || tr('未命名记忆组', 'Untitled Memory Group', 'Безымянная группа памяти')}${tr('（自定义多章节概要）', ' (custom multi-chapter synopsis)', ' (пользовательский многочастный синопсис)')}`,
             tokens: estimateTokens(buildMemoryGroupContext(group, chapters)),
             category: 'chapterMemoryGroup',
             enabled: group.enabledByDefault,
             _groupId: group.id,
+            _chapterIds: group.chapterIds,
         });
     }
 
     for (const group of olderGroups) {
         items.push({
             id: group.id,
-            group: tr('章节', 'Chapters', 'Главы'),
+            group: tr('章节概要', 'Chapter summaries', 'Сводки глав'),
+            groupId: 'chapter-summaries',
             name: group.label,
             tokens: estimateTokens(buildChapterGroupContext(group)),
             category: 'chapterGroup',
             enabled: !isChapterGroupCovered(group, memoryCoveredChapterIds),
-        });
-    }
-
-    if (previousEntry) {
-        items.push({
-            id: PREVIOUS_CHAPTER_ANCHOR_ID,
-            group: tr('章节', 'Chapters', 'Главы'),
-            name: tr(
-                `第${previousEntry.ordinal}章「${previousEntry.chapter.title}」（上一章原文·文风锚点）`,
-                `Chapter ${previousEntry.ordinal} "${previousEntry.chapter.title}" (previous chapter text / style anchor)`,
-                `Глава ${previousEntry.ordinal} "${previousEntry.chapter.title}" (текст предыдущей главы / стилевой ориентир)`
-            ),
-            tokens: estimateTokens(buildPreviousChapterAnchorContext(chapters, currentIndex)),
-            category: 'previousChapterAnchor',
-            enabled: true,
-            alwaysInclude: true,
-            _chapterId: previousEntry.chapter.id,
+            _chapterIds: group.entries.map(entry => entry.chapter.id),
         });
     }
 
     // 章节条目 — 单章精查项仍可手动勾选
     chapters.forEach((ch, i) => {
         if ((ch.type || 'chapter') === 'volume') return;
-        if (i === currentIndex) {
+        if (ch.id === previousAnchorChapterId) {
+            items.push({
+                id: PREVIOUS_CHAPTER_ANCHOR_ID,
+                ...chapterGroups.get(ch.id),
+                name: tr(
+                    `第${previousEntry.ordinal}章「${ch.title}」（上一章原文·文风锚点）`,
+                    `Chapter ${previousEntry.ordinal} "${ch.title}" (previous chapter text / style anchor)`,
+                    `Глава ${previousEntry.ordinal} "${ch.title}" (текст предыдущей главы / стилевой ориентир)`
+                ),
+                tokens: estimateTokens(buildPreviousChapterAnchorContext(chapters, currentIndex)),
+                category: 'previousChapterAnchor',
+                enabled: true,
+            });
+        } else if (i === currentIndex) {
             // 当前章节
             items.push({
                 id: `chapter-current`,
-                group: tr('章节', 'Chapters', 'Главы'),
+                ...chapterGroups.get(ch.id),
                 name: `${ch.title}${tr('（当前）', ' (current)', ' (текущая)')}`,
                 tokens: estimateTokens(buildCurrentContext(ch, getChapterOrdinal(chapters, i), getRealChapterCount(chapters))),
                 category: 'currentChapter',
                 enabled: true,
             });
         } else {
-            if (ch.id === previousAnchorChapterId) return;
             items.push({
                 id: `chapter-${ch.id}`,
-                group: tr('章节', 'Chapters', 'Главы'),
+                ...chapterGroups.get(ch.id),
                 name: `${ch.title}${hasChapterSynopsis(ch) ? tr('（概要）', ' (synopsis)', ' (синопсис)') : ''}${i > currentIndex ? tr('（后续）', ' (later)', ' (следующая)') : ''}`,
                 tokens: estimateTokens(buildChapterReferenceContext(ch, getChapterOrdinal(chapters, i))),
                 category: 'chapter',
@@ -263,10 +265,10 @@ export async function getContextItems(activeChapterId, chaptersOverride, workId 
 export async function buildContext(activeChapterId, selectedText, selectedIds = null, workId = null, inputTokenBudget = DEFAULT_INPUT_TOKEN_BUDGET) {
     const settings = getProjectSettings();
     const targetWorkId = workId || getActiveWorkId();
-    const chapters = await getChapters(targetWorkId);
+    const chapters = prepareChaptersForAi(await getChapters(targetWorkId), settings.apiConfig?.excludeStrikethroughFromAi === true);
     const currentChapter = chapters.find(ch => ch.id === activeChapterId);
     const currentIndex = chapters.findIndex(ch => ch.id === activeChapterId);
-    const memoryGroups = await getChapterMemoryGroups(targetWorkId);
+    const memoryGroups = filterMemoryGroupsForAi(await getChapterMemoryGroups(targetWorkId), chapters);
 
     // 从树形节点读取设定（过滤掉禁用项，并按当前作品过滤）
     // getSettingsNodes() 已按当前作品过滤
@@ -297,10 +299,10 @@ export async function buildContext(activeChapterId, selectedText, selectedIds = 
         // --- RAG 自动检索（仅当有手动勾选时，对未勾选项做 RAG 补充） ---
         let autoRetrievedNodes = [];
         const queryText = (selectedText || '').trim();
-        if (settings.apiConfig?.useCustomEmbed && queryText && unselectedItemNodes.length > 0) {
+        if (selectedIds.size > 0 && settings.apiConfig?.useCustomEmbed && queryText && unselectedItemNodes.length > 0) {
             try {
                 let ragSourceText = queryText;
-                if (ragSourceText.length < 50 && currentChapter) {
+                if (ragSourceText.length < 50 && currentChapter && selectedIds.has('chapter-current')) {
                     const stripChapText = stripHtml(currentChapter.content || '').slice(-200);
                     ragSourceText = ragSourceText + '\n' + stripChapText;
                 }
@@ -364,7 +366,9 @@ export async function buildContext(activeChapterId, selectedText, selectedIds = 
         previousChapters: selectedIds
             ? buildPreviousContextFiltered(chapters, currentIndex, selectedIds, memoryGroups)
             : buildPreviousContext(chapters, currentIndex, memoryGroups),
-        previousChapterAnchor: buildPreviousChapterAnchorContext(chapters, currentIndex),
+        previousChapterAnchor: (!selectedIds || selectedIds.has(PREVIOUS_CHAPTER_ANCHOR_ID))
+            ? buildPreviousChapterAnchorContext(chapters, currentIndex)
+            : '',
         currentChapter: (!selectedIds || selectedIds.has('chapter-current'))
             ? buildCurrentContext(currentChapter, getChapterOrdinal(chapters, currentIndex), getRealChapterCount(chapters))
             : '',

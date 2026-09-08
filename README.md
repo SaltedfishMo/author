@@ -48,6 +48,8 @@ I watched the versatility of these models being gutted. I don't want us to live 
 - **Free chat mode** — discuss plot, characters, and settings with AI
 - **Configurable chat send shortcut** — choose Enter to send or Ctrl/⌘ + Enter to send, for both compact and expanded chat input
 - **Global AI Memory (Context Engine)** — AI automatically reads your character profiles, worldbuilding, and previous chapters to maintain story consistency
+- **Choose AI references by volume** — select whole volumes or individual chapters; clearing all references stays saved
+- **Optional strikethrough exclusion** — off by default; AI can skip struck-through text while preserving the original manuscript and formatting
 
 ### 📚 Worldbuilding Manager
 - **Tree-structured** management for characters, locations, items, outlines, and writing rules
@@ -311,6 +313,8 @@ By default, AI conversations inject **all settings entries** into the context. W
 | **Embedding API Key** | API key for the embedding model (can share the same key as your chat model provider) |
 | **Embedding Base URL** | API endpoint (e.g., `https://api.openai.com/v1`) |
 | **Embedding Model** | Model name (see recommendations below) |
+
+If your embedding service requires no API key, turn off chat-key reuse and leave the embedding key blank.
 
 #### Recommended Models
 

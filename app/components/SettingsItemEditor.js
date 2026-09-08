@@ -7,7 +7,7 @@ import {
     User, MapPin, Globe, Gem, Ruler, Settings as SettingsIcon,
     Heart, Star, Shield, Zap, Feather, Compass, Flag, Tag, Layers
 } from 'lucide-react';
-import { ICON_PICKER_OPTIONS } from './SettingsTree';
+import { getBuiltInNodeLabel, getSettingsIconOptions } from '../lib/built-in-labels';
 import { useI18n } from '../lib/useI18n';
 import MiniMarkdownEditor from './MiniMarkdownEditor';
 import RadarStatsChart from './RadarStatsChart';
@@ -839,7 +839,7 @@ function Breadcrumb({ node, allNodes, onSelect }) {
                             onMouseLeave={e => { e.currentTarget.style.color = i === path.length - 1 ? 'var(--text-primary)' : 'var(--text-muted)'; e.currentTarget.style.background = i === path.length - 1 ? 'var(--bg-hover, #f3f4f6)' : 'transparent'; }}
                         >
                             {IconComp && <IconComp size={12} />}
-                            {p.name}
+                            {getBuiltInNodeLabel(p, text)}
                         </span>
                     </span>
                 );
@@ -947,7 +947,7 @@ function FolderInfo({ node, nodes, onAdd, onUpdate }) {
                             </span>
                         )}
                     </div>
-                    <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>{node.name}</h3>
+                    <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>{getBuiltInNodeLabel(node, text)}</h3>
                     <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
                         {folders.length > 0 && `${text(`${folders.length} 个子文件夹`, `${folders.length} subfolders`, `Подпапок: ${folders.length}`)} · `}
                         {text(`${items.length} 个设定项`, `${items.length} entries`, `Записей: ${items.length}`)}
@@ -961,7 +961,7 @@ function FolderInfo({ node, nodes, onAdd, onUpdate }) {
                         padding: '12px 20px 16px', borderTop: `1px solid ${catColor.color}10`,
                         background: `${catColor.color}04`,
                     }}>
-                        {ICON_PICKER_OPTIONS.map(opt => {
+                        {getSettingsIconOptions(text).map(opt => {
                             const IconComp = ICON_COMPONENT_MAP[opt.name];
                             const isActive = node.icon === opt.name;
                             return (

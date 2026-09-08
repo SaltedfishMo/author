@@ -22,6 +22,7 @@ import {
 } from './lib/storage';
 import { initPersistence } from './lib/persistence';
 import { buildContext, compileSystemPrompt, compileUserPrompt, getContextItems, estimateTokens } from './lib/context-engine';
+import { reconcileContextSelection } from './lib/context-selection';
 import { addTokenRecord } from './lib/token-stats';
 import { getProjectSettings, WRITING_MODES, getWritingMode, addSettingsNode, updateSettingsNode, deleteSettingsNode, getSettingsNodes, getActiveWorkId } from './lib/settings';
 import { resolveAiEndpoint } from './lib/ai-provider-compat';
@@ -574,16 +575,14 @@ export default function Home() {
       });
 
       const allItems = [...baseItems, ...chatItems];
+      const previousItems = useAppStore.getState().contextItems;
       setContextItems(allItems);
 
-      const validIds = new Set(allItems.map(it => it.id));
       const workChanged = contextWorkIdRef.current !== activeWorkId;
       contextWorkIdRef.current = activeWorkId;
 
       // 切换作品时参考条目必须跟随当前作品；同作品刷新时只保留仍存在的勾选项。
       setContextSelection(prev => {
-        const retained = new Set([...prev].filter(id => validIds.has(id)));
-        const defaultEnabledIds = new Set(allItems.filter(it => it.enabled || it.alwaysInclude).map(it => it.id));
         const strategyVersion = typeof window !== 'undefined'
           ? localStorage.getItem(CONTEXT_STRATEGY_VERSION_KEY)
           : CONTEXT_STRATEGY_VERSION;
@@ -591,20 +590,14 @@ export default function Home() {
         if (shouldResetForStrategy && typeof window !== 'undefined') {
           localStorage.setItem(CONTEXT_STRATEGY_VERSION_KEY, CONTEXT_STRATEGY_VERSION);
         }
-        if (workChanged || retained.size === 0) {
-          return defaultEnabledIds;
-        }
-        if (shouldResetForStrategy) {
-          return defaultEnabledIds;
-        }
-        allItems.filter(it => it.alwaysInclude).forEach(it => retained.add(it.id));
-        return retained;
+        const firstSelection = typeof window !== 'undefined' && localStorage.getItem('author-context-selection') === null;
+        return reconcileContextSelection(prev, allItems, workChanged || shouldResetForStrategy || firstSelection, previousItems);
       });
     };
 
     loadContext();
     return () => { cancelled = true; };
-  }, [activeWorkId, activeChapterId, settingsVersion, chatHistory.length, chaptersFingerprint, memoryGroupsVersion]);
+  }, [activeWorkId, activeChapterId, settingsVersion, chatHistory.length, chaptersFingerprint, memoryGroupsVersion, t]);
 
   // 定时自动存档 (每 15 分钟)
   useEffect(() => {
@@ -756,7 +749,7 @@ export default function Home() {
     let fullText = '';
     try {
       // 使用上下文引擎收集项目信息
-      const context = await buildContext(activeChapterId, text, contextSelection.size > 0 ? contextSelection : null, activeWorkId);
+      const context = await buildContext(activeChapterId, text, contextSelection, activeWorkId);
       const systemPrompt = compileSystemPrompt(context, mode);
       const userPrompt = compileUserPrompt(mode, text, instruction);
 

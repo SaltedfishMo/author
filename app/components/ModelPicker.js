@@ -8,6 +8,8 @@ import { PROVIDERS, getProviderLabel } from './SettingsPanel';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../lib/useI18n';
 import { apiPath } from '../lib/api-base';
+import { getEmbeddingProviderConfig, switchEmbeddingModel } from '../lib/embedding-provider-config';
+import { getBuiltInEndpointName } from '../lib/built-in-labels';
 
 // Provider icon filename mapping
 const PROVIDER_ICON_MAP = {
@@ -79,22 +81,20 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
         if (target === 'embed') {
             const ac = settings.apiConfig || {};
             const enabled = !!ac.useCustomEmbed;
-            const mainProvider = ac.providerType || ac.provider || '';
             const activeProvider = enabled ? (ac.embedProvider || '') : '';
-            const canReuseMainKey = activeProvider && activeProvider === mainProvider;
+            const active = getEmbeddingProviderConfig(ac, activeProvider);
             setConfig({
                 active: enabled
                     ? {
                         provider: activeProvider,
-                        model: ac.embedModel || '',
-                        apiKey: ac.embedApiKey || (canReuseMainKey ? ac.apiKey : '') || '',
+                        model: active.model,
+                        apiKey: active.effectiveApiKey,
                     }
                     : { provider: '', model: '', apiKey: '' },
                 enabled,
                 isFallback: false,
                 providerConfigs: ac.embedProviderConfigs || {},
-                mainProvider,
-                mainApiKey: ac.apiKey,
+                embeddingApiConfig: ac,
             });
         } else if (target === 'chat') {
             setConfig({
@@ -185,17 +185,13 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                 if (processedKeys.has(instanceKey)) continue;
                 processedKeys.add(instanceKey);
                 const cfg = pc[instanceKey];
-                const hasKey = target === 'embed'
-                    ? !!(config.enabled && (
-                        cfg?.apiKey
-                        || (config.active?.provider === instanceKey && config.active?.apiKey)
-                        || (config.mainProvider === instanceKey && config.mainApiKey)
-                    ))
+                const isConfigured = target === 'embed'
+                    ? getEmbeddingProviderConfig(config.embeddingApiConfig, instanceKey, p).isConfigured
                     : !!(cfg?.apiKey || (config.active?.provider === instanceKey && config.active?.apiKey) || (config.mainProvider === instanceKey && config.mainApiKey));
                 const userModels = cfg?.models || [];
 
                 // 实例显示名：如果有多个实例，使用实例自定义名称
-                const instanceName = cfg?.instanceName || '';
+                const instanceName = getBuiltInEndpointName(cfg?.instanceName, text) || '';
                 const providerLabel = getProviderLabel(p, text);
                 const displayLabel = instanceKeys.length > 1 && instanceName
                     ? `${providerLabel} — ${instanceName}`
@@ -210,13 +206,13 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                 if (!providerMatch && filteredModels.length === 0) continue;
 
                 if (userModels.length === 0) {
-                    if (hasKey) {
-                        configured.push({ provider: { ...p, key: instanceKey, label: displayLabel }, hasKey, models: [], allModels: [], instanceKey });
+                    if (isConfigured) {
+                        configured.push({ provider: { ...p, key: instanceKey, label: displayLabel }, isConfigured, models: [], allModels: [], instanceKey });
                     }
                     continue;
                 }
 
-                const entry = { provider: { ...p, key: instanceKey, label: displayLabel }, hasKey, models: filteredModels, allModels: userModels, instanceKey };
+                const entry = { provider: { ...p, key: instanceKey, label: displayLabel }, isConfigured, models: filteredModels, allModels: userModels, instanceKey };
                 configured.push(entry);
             }
         }
@@ -227,11 +223,11 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
             processedKeys.add(key);
             const provType = cfg.providerType || key;
             const baseProv = PROVIDERS.find(pp => pp.key === provType);
-            const hasKey = target === 'embed'
-                ? !!(config.enabled && cfg.apiKey)
+            const isConfigured = target === 'embed'
+                ? getEmbeddingProviderConfig(config.embeddingApiConfig, key, baseProv).isConfigured
                 : !!cfg.apiKey;
             const userModels = cfg.models || [];
-            const displayLabel = cfg.instanceName || getProviderLabel(baseProv || provType, text);
+            const displayLabel = getBuiltInEndpointName(cfg.instanceName, text) || getProviderLabel(baseProv || provType, text);
             const q = search.toLowerCase();
             const providerMatch = !q || displayLabel.toLowerCase().includes(q) || key.includes(q);
             const filteredModels = q
@@ -245,10 +241,10 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                 models: baseProv?.models || [],
                 apiFormat: cfg.apiFormat || baseProv?.apiFormat || '',
             };
-            if (userModels.length === 0 && hasKey) {
-                configured.push({ provider: fakeProvider, hasKey, models: [], allModels: [], instanceKey: key });
+            if (userModels.length === 0 && isConfigured) {
+                configured.push({ provider: fakeProvider, isConfigured, models: [], allModels: [], instanceKey: key });
             } else if (filteredModels.length > 0) {
-                configured.push({ provider: fakeProvider, hasKey, models: filteredModels, allModels: userModels, instanceKey: key });
+                configured.push({ provider: fakeProvider, isConfigured, models: filteredModels, allModels: userModels, instanceKey: key });
             }
         }
 
@@ -265,24 +261,9 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
         if (target === 'embed') {
             // 嵌入模型切换
             const ac = settings.apiConfig || {};
-            const epc = { ...(ac.embedProviderConfigs || {}) };
-            const providerCfg = epc[providerKey] || {};
-            const providerDef = PROVIDERS.find(p => p.key === providerKey);
-
-            // 保存当前 embed 供应商配置
-            if (ac.embedProvider && ac.embedProvider !== providerKey) {
-                if (!epc[ac.embedProvider]) epc[ac.embedProvider] = {};
-                epc[ac.embedProvider].apiKey = ac.embedApiKey || '';
-                epc[ac.embedProvider].baseUrl = ac.embedBaseUrl || '';
-                epc[ac.embedProvider].model = ac.embedModel || '';
-            }
-
-            ac.embedProvider = providerKey;
-            ac.embedModel = modelId;
-            ac.embedApiKey = providerCfg.apiKey || '';
-            ac.embedBaseUrl = providerCfg.baseUrl || providerDef?.baseUrl || '';
-            ac.embedProviderConfigs = epc;
-            settings.apiConfig = ac;
+            const providerType = ac.embedProviderConfigs?.[providerKey]?.providerType || providerKey;
+            const providerDef = PROVIDERS.find(p => p.key === providerType);
+            settings.apiConfig = switchEmbeddingModel(ac, providerKey, modelId, providerDef);
             saveProjectSettings(settings);
             refreshConfig();
             setOpen(false);
@@ -378,7 +359,7 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                 ref={triggerRef}
                 className="model-picker-trigger"
                 onClick={() => { setOpen(!open); if (!open) refreshConfig(); }}
-                title={`${targetLabel}: ${providerDef?.label || activeProvider} / ${activeModel}`}
+                title={`${targetLabel}: ${getProviderLabel(providerDef || activeProvider, text)} / ${activeModel}`}
             >
                 {target === 'embed' ? <span style={{ fontSize: 12 }}>📐</span> : <MiniProviderIcon provider={activeProvider} model={activeModel} />}
                 <span className="model-picker-label">
@@ -433,12 +414,12 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                             return (
                                 <div key={group.label} className="model-picker-group">
                                     <div className="model-picker-group-label">{group.label}</div>
-                                    {group.items.map(({ provider: p, hasKey, models }) => (
+                                    {group.items.map(({ provider: p, isConfigured, models }) => (
                                         <div key={p.key} className="model-picker-provider">
                                             <div className="model-picker-provider-header">
                                                 <MiniProviderIcon provider={p.key} model="" />
                                                 <span className="model-picker-provider-name">{p.label}</span>
-                                                {!hasKey && (
+                                                {!isConfigured && (
                                                     <span
                                                         className="model-picker-no-key"
                                                         onClick={() => {
@@ -456,9 +437,9 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                                                 return (
                                                     <button
                                                         key={m}
-                                                        className={`model-picker-item ${isActive ? 'active' : ''} ${!hasKey ? 'no-key' : ''}`}
+                                                        className={`model-picker-item ${isActive ? 'active' : ''} ${!isConfigured ? 'no-key' : ''}`}
                                                         onClick={() => {
-                                                            if (hasKey) {
+                                                            if (isConfigured) {
                                                                 selectModel(p.key, m);
                                                             } else {
                                                                 setOpen(false);
@@ -467,13 +448,13 @@ export default function ModelPicker({ target = 'editor', onOpenSettings, classNa
                                                             }
                                                         }}
                                                     >
-                                                        <span className="model-picker-item-name" style={!hasKey ? { opacity: 0.55 } : undefined}>{m}</span>
+                                                        <span className="model-picker-item-name" style={!isConfigured ? { opacity: 0.55 } : undefined}>{m}</span>
                                                         {isActive && <span className="model-picker-check">✓</span>}
-                                                        {!hasKey && <span className="model-picker-no-key-hint"><KeyRound size={11} /></span>}
+                                                        {!isConfigured && <span className="model-picker-no-key-hint"><KeyRound size={11} /></span>}
                                                     </button>
                                                 );
                                             })}
-                                            {hasKey && models.length === 0 && (
+                                            {isConfigured && models.length === 0 && (
                                                 <div className="model-picker-empty">
                                                     {t('modelPicker.noModels') || '暂无模型，请在设置中添加'}
                                                 </div>

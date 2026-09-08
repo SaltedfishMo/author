@@ -24,6 +24,7 @@ import { aiFetch } from '../lib/ai-direct';
 import { localizeApiError } from '../lib/api-error-i18n';
 import { tt } from '../lib/runtime-i18n';
 import { buildChapterSynopsisPrompts, buildMergedSynopsisPrompts, buildMultiChapterSynopsisPrompts } from '../lib/synopsis-prompts';
+import { prepareChapterForAi, prepareChaptersForAi } from '../lib/ai-reference-content';
 
 /** 更多操作下拉菜单（Portal 渲染到 body，彻底避免 overflow 裁剪） */
 function MoreMenuPortal({ anchorRef, t, setShowSettings, setShowMoreMenu, onOpenHelp, setShowGitPopup }) {
@@ -197,17 +198,27 @@ async function readAiTextStream(response) {
 }
 
 function buildSynopsisPrompts(chapter) {
-    const chapterText = stripChapterHtml(chapter?.content || '');
+    const source = prepareChapterForAi(chapter, getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true);
+    const chapterText = stripChapterHtml(source?.content || '');
     return buildChapterSynopsisPrompts({ title: chapter?.title || '', chapterText });
 }
 
 function buildMemoryGroupPrompts({ name, chapters }) {
-    const content = chapters.map(({ chapter, ordinal }) => buildChapterSourceText(chapter, ordinal)).join('\n\n---\n\n');
+    const excludeStrikethrough = getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true;
+    const content = chapters.map(({ chapter, ordinal }) => buildChapterSourceText(prepareChapterForAi(chapter, excludeStrikethrough), ordinal)).join('\n\n---\n\n');
     return buildMultiChapterSynopsisPrompts({ name, content });
 }
 
 function buildMemoryMergePrompts({ name, groups, chapters }) {
-    const content = groups.map(group => buildChapterMemoryGroupText(group, chapters)).join('\n\n---\n\n');
+    const sources = prepareChaptersForAi(chapters, getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true);
+    const realChapters = sources.filter(chapter => chapter.type !== 'volume');
+    const content = groups.map(group => {
+        if (!sources.some(chapter => chapter._aiReferenceFiltered && group.chapterIds?.includes(chapter.id))) {
+            return buildChapterMemoryGroupText(group, sources);
+        }
+        return realChapters.filter(chapter => group.chapterIds?.includes(chapter.id))
+            .map(chapter => buildChapterSourceText(chapter, realChapters.indexOf(chapter) + 1)).join('\n\n');
+    }).join('\n\n---\n\n');
     return buildMergedSynopsisPrompts({ name, content });
 }
 
@@ -858,7 +869,7 @@ function ChapterSynopsisOverviewModal({
             showToast?.(text('当前概要已锁定，取消锁定后再生成', 'This synopsis is locked. Unlock it before generating.', 'Этот синопсис заблокирован. Разблокируйте его перед генерацией.'), 'info');
             return;
         }
-        const plainText = stripChapterHtml(entry.chapter.content || '');
+        const plainText = stripChapterHtml(prepareChapterForAi(entry.chapter, getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true).content || '');
         if (plainText.length < 20) {
             setSingleError(text('正文太短，暂时无法生成有效概要', 'The chapter is too short to generate a useful synopsis yet.', 'Текст главы слишком короткий для полезного синопсиса.'));
             showToast?.(text('正文太短，暂时无法生成有效概要', 'The chapter is too short to generate a useful synopsis yet.', 'Текст главы слишком короткий для полезного синопсиса.'), 'info');
@@ -1989,7 +2000,7 @@ export default function Sidebar({ onOpenHelp, onToggle, editorRef, pushMode }) {
             return;
         }
 
-        const plainText = stripChapterHtml(synopsisChapter.content || '');
+        const plainText = stripChapterHtml(prepareChapterForAi(synopsisChapter, getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true).content || '');
         if (plainText.length < 20) {
             setSynopsisError(text('正文太短，暂时无法生成有效概要', 'The chapter is too short to generate a useful synopsis yet.', 'Текст главы слишком короткий для полезного синопсиса.'));
             return;

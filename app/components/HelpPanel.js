@@ -107,6 +107,8 @@ AI 会自动参考：
 切换到「参考」标签页，勾选要注入的上下文：
 - 人物设定、世界观、地点、物品、大纲、写作规则
 - 勾选的内容会作为 AI 的背景知识
+- **按卷选择章节**：点击卷标题旁的复选框可整卷勾选或取消，也可逐章选择。取消全部参考后，重新打开时会保留空选状态。
+- **AI 忽略删除线文字**：此开关默认关闭。开启后，AI 参考、内联写作和章节摘要会跳过删除线文字；正文及其格式仍然保留。
 
 #### 会话管理
 - **新建会话**：开启全新对话
@@ -149,7 +151,7 @@ AI 会自动参考：
 | **API Key** | 你的大模型服务凭证。保存在本地，必需配置。**负载均衡 / Key池**：支持填入多个Key（用英文逗号 \`,\` 分隔，例如 \`sk-1,sk-2\`），系统会随机轮询发流，避免限频 |
 | **Base URL** | 接口地址（切换提供商时会自动填写默认地址） |
 | **模型选择** | 点击「从 API 拉取模型列表」自动更新当前可用的大模型库供你选择；已保存但本次未返回的模型会标记为「未返回」，可手动清理 |
-| **独立向量API** | 开启专用的 Embedding 模型，为百万字长篇提供精准的 RAG 设定检索能力 |
+| **独立向量API** | 配置专用 Embedding 模型，并选择是否复用聊天 Key。嵌入服务不要求 Key 时，关闭复用后可留空嵌入 Key |
 | **高级模型参数** | 支持开启并独立覆盖 Temperature、Top P、推理思考强度 (Reasoning Effort) 等高级调度参数 |
 
 ### ⚡ Token 级智能缓存
@@ -774,6 +776,8 @@ Click the **✦ AI** button in the upper-right corner of the editor, or use the 
 Switch to the **Reference** tab and check the context you want to inject:
 - Characters, worldbuilding, places, items, outline, writing rules.
 - Checked entries become background knowledge for AI.
+- **Select chapters by volume**: use the checkbox beside a volume title to select or clear the whole volume, or select individual chapters. Clearing all references stays saved when you reopen the app.
+- **Exclude strikethrough text from AI**: off by default. When enabled, AI references, inline writing, and chapter summaries skip struck-through text while keeping the original manuscript and formatting.
 
 #### Session Management
 - **New Session**: start a clean conversation.
@@ -817,7 +821,7 @@ This is the foundation of the AI assistant. API keys are stored in **local brows
 | **API Key** | Your model service credential. Required and stored locally. **Load balancing / key pool**: enter multiple keys separated by English commas, such as \`sk-1,sk-2\`, and Author will randomly rotate requests to avoid rate limits |
 | **Base URL** | API endpoint. Switching provider fills the default address automatically |
 | **Model Selection** | Click **Fetch model list from API** to refresh available models. Saved models missing from the latest response are marked **Not returned** and can be cleared manually |
-| **Independent Vector API** | Enable a dedicated embedding model for precise RAG retrieval in very long works |
+| **Independent Vector API** | Configure a dedicated embedding model and choose whether to reuse the chat key. If the embedding service requires no key, disable key reuse and leave the embedding key blank |
 | **Advanced Model Params** | Independently override Temperature, Top P, Reasoning Effort, and other advanced parameters |
 
 ### Token-level Smart Cache
@@ -1439,6 +1443,8 @@ Author — **платформа письма с ИИ** для авторов п�
 Во вкладке **Reference** выберите, какой контекст отправлять ИИ:
 - Персонажи, мир, места, предметы, план, правила письма.
 - Отмеченные элементы становятся фоновыми знаниями ИИ.
+- **Выбор глав по томам**: флажок рядом с названием тома выбирает или снимает выбор со всех его глав. Главы также можно выбирать отдельно. Полностью снятый выбор сохраняется при повторном открытии приложения.
+- **Не отправлять зачёркнутый текст ИИ**: по умолчанию выключено. После включения контекст ИИ, встроенный помощник и краткие содержания глав пропускают зачёркнутый текст; исходный текст и форматирование сохраняются.
 
 #### Сессии
 - **Новая сессия**: чистый диалог.
@@ -1477,7 +1483,7 @@ Author — **платформа письма с ИИ** для авторов п�
 | **API Key** | Ключ сервиса. Хранится локально. Можно ввести несколько ключей через запятую, например \`sk-1,sk-2\`, для ротации |
 | **Base URL** | Адрес API; при смене провайдера заполняется автоматически |
 | **Модель** | Список моделей можно подтянуть из API; сохраненные, но не вернувшиеся модели помечаются отдельно |
-| **Отдельный Vector API** | Embedding-модель для RAG-поиска в больших произведениях |
+| **Отдельный Vector API** | Отдельная embedding-модель с выбором, использовать ли ключ чата. Если сервис не требует ключа, отключите его повторное использование и оставьте поле ключа embedding пустым |
 | **Расширенные параметры** | Temperature, Top P, Reasoning Effort и другие настройки |
 
 ### Token cache

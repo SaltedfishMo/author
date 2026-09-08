@@ -34,11 +34,15 @@ import {
     List, ListOrdered, ListChecks, Quote, Code2,
 } from 'lucide-react';
 import { ragRecommend } from '../lib/context-engine';
+import { getProjectSettings } from '../lib/settings';
+import { getEditorAiReferenceText } from '../lib/editor-ai-reference';
+import { groupContextItems, getSelectedContextChapterIds, isContextItemSelected, toggleContextReferences } from '../lib/context-selection';
 import { useAppStore } from '../store/useAppStore';
 import { WRITING_FONT_FAMILIES } from '../lib/typography';
 import ModelPicker from './ModelPicker';
 import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { useI18n } from '../lib/useI18n';
+import { getEditorPlaceholder, refreshEditorPlaceholder } from '../lib/editor-placeholder';
 import DesktopTtsControls from './DesktopTtsControls';
 import { applyRemarkText, getRemarkEditState } from '../lib/remark-actions';
 import { getRemarkNotePlacement } from '../lib/remark-layout';
@@ -450,15 +454,8 @@ const Editor = forwardRef(function Editor({ content, contentReceipt = null, chap
         runRestore();
     }, []);
 
-    // 占位符绕过 useI18n 的 hydration gate：editor 在首次渲染（gate 仍为 'zh'）时创建，
-    // 且 Tiptap Placeholder 创建后无法可靠动态改，所以这里直接读持久化的真实语言
-    // (author-lang，与 store 初始化同源)，确保英文/俄文用户加载即看到对应占位符。
-    const editorPlaceholder = (() => {
-        const lang = (typeof window !== 'undefined' && localStorage.getItem('author-lang')) || 'zh';
-        if (lang === 'en') return 'Start writing... let inspiration flow';
-        if (lang === 'ru') return 'Начните писать... пусть вдохновение течёт';
-        return '开始写作…让灵感自由流淌';
-    })();
+    // Placeholder keeps its initial options, so resolve the current language on each decoration update.
+    const editorPlaceholder = useCallback(() => getEditorPlaceholder(useAppStore.getState().language), []);
     const editor = useEditor({
         immediatelyRender: false,
         extensions: [
@@ -570,6 +567,10 @@ const Editor = forwardRef(function Editor({ content, contentReceipt = null, chap
             scheduleCurrentEditorPosition(editor);
         },
     });
+
+    useEffect(() => {
+        refreshEditorPlaceholder(getMountedEditorView(editor));
+    }, [editor, language]);
 
     const flushPendingSave = useCallback(async () => {
         if (!editor || isLoadingContentRef.current) return { changed: false };
@@ -1500,7 +1501,7 @@ function InlineAI({ editor, onAiRequest, onArchiveGeneration, contextItems, cont
     // 获取上文（用于续写）
     const getContextText = useCallback(() => {
         if (!editor) return '';
-        const text = editor.getText();
+        const text = getEditorAiReferenceText(editor, { excludeStrikethrough: getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true });
         return text.length > 1500 ? text.slice(-1500) : text;
     }, [editor]);
 
@@ -1765,8 +1766,15 @@ function InlineAI({ editor, onAiRequest, onArchiveGeneration, contextItems, cont
         }
         currentModeRef.current = actualMode;
 
-        const text = selectedText || contextText;
-        if (!text.trim() && actualMode !== 'continue') return;
+        const referenceText = selectedText
+            ? getEditorAiReferenceText(editor, { from: editor.state.selection.from, to: editor.state.selection.to, excludeStrikethrough: getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true })
+            : contextText;
+        if (selectedText && !referenceText.trim()) {
+            useAppStore.getState().showToast(text('所选内容都已划掉，暂不发送给 AI。', 'The selection is entirely struck through and will not be sent to AI.', 'Выделенный текст полностью зачёркнут и не будет отправлен ИИ.'), 'info');
+            return;
+        }
+        const requestText = referenceText;
+        if (!requestText.trim() && actualMode !== 'continue') return;
 
         setStreaming(true);
         setPendingGhost(false);
@@ -1805,7 +1813,7 @@ function InlineAI({ editor, onAiRequest, onArchiveGeneration, contextItems, cont
         try {
             await onAiRequest({
                 mode: actualMode,
-                text,
+                text: requestText,
                 instruction: instruction.trim(),
                 signal: controller.signal,
                 onChunk: (chunk) => {
@@ -1847,7 +1855,7 @@ function InlineAI({ editor, onAiRequest, onArchiveGeneration, contextItems, cont
                 setVisible(false);
             }
         }
-    }, [onAiRequest, streaming, mode, instruction, getSelectedText, getContextText, editor, enqueueText, updatePosition, generateChat]);
+    }, [onAiRequest, streaming, mode, instruction, getSelectedText, getContextText, editor, enqueueText, updatePosition, generateChat, text]);
 
     // 键盘快捷键：Ctrl+J 打开，Esc 关闭/拒绝，Tab 接受
     useEffect(() => {
@@ -2126,21 +2134,14 @@ function InlineContextPanel({ contextItems, contextSelection, setContextSelectio
 
     // 只显示设定集条目，不显示对话历史
     const settingsItems = useMemo(() =>
-        (contextItems || []).filter(it => it.category !== 'dialogue'),
+        (contextItems || []).filter(it => it.category !== 'dialogue' && !it._empty),
         [contextItems]);
 
     // 按分组归类，过滤掉空分组
-    const grouped = useMemo(() => {
-        const groups = {};
-        for (const item of settingsItems) {
-            const g = item.group || text('其他', 'Other', 'Другое');
-            if (!groups[g]) groups[g] = [];
-            groups[g].push(item);
-        }
-        return groups;
-    }, [settingsItems, text]);
+    const grouped = useMemo(() => groupContextItems(settingsItems), [settingsItems]);
+    const selectedChapterIds = useMemo(() => getSelectedContextChapterIds(settingsItems, contextSelection), [settingsItems, contextSelection]);
 
-    const selectedCount = settingsItems.filter(it => contextSelection?.has(it.id)).length;
+    const selectedCount = settingsItems.filter(it => isContextItemSelected(it, contextSelection, selectedChapterIds)).length;
     const totalCount = settingsItems.length;
 
     // Graph RAG 智能推荐
@@ -2151,10 +2152,9 @@ function InlineContextPanel({ contextItems, contextSelection, setContextSelectio
         setRagScores({});
         try {
             // 获取光标前 ~500 字作为查询上下文
-            const text = editor.getText();
             const head = editor.state.selection.head;
             // 将 ProseMirror 位置大致映射到纯文本位置
-            const textBefore = editor.state.doc.textBetween(Math.max(0, head - 600), head, ' ');
+            const textBefore = getEditorAiReferenceText(editor, { from: Math.max(0, head - 600), to: head, excludeStrikethrough: getProjectSettings().apiConfig?.excludeStrikethroughFromAi === true });
             const queryText = textBefore.slice(-500);
 
             if (!queryText.trim()) {
@@ -2192,25 +2192,13 @@ function InlineContextPanel({ contextItems, contextSelection, setContextSelectio
     if (totalCount === 0) return null;
 
     const toggleItem = (itemId) => {
-        setContextSelection?.(prev => {
-            const next = new Set(prev);
-            if (next.has(itemId)) next.delete(itemId);
-            else next.add(itemId);
-            return next;
-        });
+        const item = settingsItems.find(entry => entry.id === itemId);
+        if (item) setContextSelection?.(prev => toggleContextReferences(prev, [item], settingsItems));
     };
 
     const toggleGroup = (groupName) => {
         const items = grouped[groupName] || [];
-        setContextSelection?.(prev => {
-            const next = new Set(prev);
-            const allChecked = items.every(it => prev.has(it.id));
-            items.forEach(it => {
-                if (allChecked) next.delete(it.id);
-                else next.add(it.id);
-            });
-            return next;
-        });
+        setContextSelection?.(prev => toggleContextReferences(prev, items, settingsItems));
     };
 
     return (
@@ -2244,7 +2232,7 @@ function InlineContextPanel({ contextItems, contextSelection, setContextSelectio
             {expanded && (
                 <div className="inline-context-list">
                     {Object.entries(grouped).map(([groupName, items]) => {
-                        const checkedCount = items.filter(it => contextSelection?.has(it.id)).length;
+                        const checkedCount = items.filter(it => isContextItemSelected(it, contextSelection, selectedChapterIds)).length;
                         const allChecked = checkedCount === items.length;
                         return (
                             <div key={groupName} className="inline-context-group">
@@ -2255,7 +2243,7 @@ function InlineContextPanel({ contextItems, contextSelection, setContextSelectio
                                         ref={el => { if (el) el.indeterminate = checkedCount > 0 && checkedCount < items.length; }}
                                         onChange={() => toggleGroup(groupName)}
                                     />
-                                    <span className="inline-context-group-name">{groupName}</span>
+                                    <span className="inline-context-group-name">{items[0].group || text('其他', 'Other', 'Другое')}</span>
                                     <span className="inline-context-group-count">{checkedCount}/{items.length}</span>
                                 </label>
                                 {items.map(item => (
@@ -2263,7 +2251,7 @@ function InlineContextPanel({ contextItems, contextSelection, setContextSelectio
                                         <label style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, cursor: 'pointer' }}>
                                             <input
                                                 type="checkbox"
-                                                checked={contextSelection?.has(item.id) || false}
+                                                checked={isContextItemSelected(item, contextSelection, selectedChapterIds)}
                                                 onChange={() => toggleItem(item.id)}
                                             />
                                             <span className="inline-context-item-name" title={item.name}>{item.name}</span>

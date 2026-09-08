@@ -1,1 +1,1 @@
-改进写作保存、快照恢复与更新稳定性 | Improved writing saves, snapshot recovery, and update reliability
+改进 AI 参考选择、模型配置与多语言界面 | Improved AI reference selection, model settings, and translations
