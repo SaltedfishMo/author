@@ -1,1 +1,1 @@
-改进 AI 参考选择、模型配置与多语言界面 | Improved AI reference selection, model settings, and translations
+改进 AI 参考、模型设置与发布稳定性 | Improved AI references, model settings, and release reliability

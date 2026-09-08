@@ -11,6 +11,7 @@
 - 修复部分旧版浏览器中云同步失败的问题。
 - 改进桌面安装包的运行资源校验与构建临时文件管理。
 - 更新帮助页和多语言使用说明。
+- 统一发布前检查，检查通过后再构建安装包与 Docker 镜像，减少重复构建。
 
 ---
 
@@ -25,3 +26,4 @@
 - Fixed cloud sync failures in some older browsers.
 - Improved desktop package resource validation and temporary build-file management.
 - Updated in-app help and multilingual usage guidance.
+- Unified release verification so installers and Docker images build after checks pass, reducing duplicate builds.

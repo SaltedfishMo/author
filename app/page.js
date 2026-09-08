@@ -163,7 +163,7 @@ export default function Home() {
     writingMode, setWritingMode,
     toast, showToast,
     contextSelection, setContextSelection,
-    contextItems, setContextItems,
+    contextItems,
     settingsVersion, incrementSettingsVersion,
     setPendingLocalSaveFlusher,
     sessionStore, setSessionStore,
@@ -556,11 +556,15 @@ export default function Home() {
     let cancelled = false;
 
     const loadContext = async () => {
-      const baseItems = await getContextItems(activeChapterId, chapters, activeWorkId);
+      // Refresh on structural changes; typing and streaming do not rebuild the list.
+      const snapshot = useAppStore.getState();
+      const baseItems = await getContextItems(activeChapterId, snapshot.chapters, activeWorkId);
       if (cancelled) return;
 
       // 追加对话历史条目 — 逐条生成，供参考面板单独勾选
-      const chatItems = chatHistory.map((m, i) => {
+      const currentState = useAppStore.getState();
+      const messages = getActiveSession(currentState.sessionStore)?.messages || [];
+      const chatItems = messages.map((m) => {
         const label = m.role === 'user' ? t('page.dialogueUser') : m.isSummary ? t('aiSidebar.roleSummary') : 'AI';
         const preview = m.content.slice(0, 25) + (m.content.length > 25 ? '…' : '');
         return {
@@ -575,14 +579,14 @@ export default function Home() {
       });
 
       const allItems = [...baseItems, ...chatItems];
-      const previousItems = useAppStore.getState().contextItems;
-      setContextItems(allItems);
+      const previousItems = currentState.contextItems;
+      currentState.setContextItems(allItems);
 
       const workChanged = contextWorkIdRef.current !== activeWorkId;
       contextWorkIdRef.current = activeWorkId;
 
       // 切换作品时参考条目必须跟随当前作品；同作品刷新时只保留仍存在的勾选项。
-      setContextSelection(prev => {
+      currentState.setContextSelection(prev => {
         const strategyVersion = typeof window !== 'undefined'
           ? localStorage.getItem(CONTEXT_STRATEGY_VERSION_KEY)
           : CONTEXT_STRATEGY_VERSION;
@@ -597,7 +601,7 @@ export default function Home() {
 
     loadContext();
     return () => { cancelled = true; };
-  }, [activeWorkId, activeChapterId, settingsVersion, chatHistory.length, chaptersFingerprint, memoryGroupsVersion, t]);
+  }, [activeWorkId, activeChapterId, activeSession?.id, settingsVersion, chatHistory.length, chaptersFingerprint, memoryGroupsVersion, t]);
 
   // 定时自动存档 (每 15 分钟)
   useEffect(() => {

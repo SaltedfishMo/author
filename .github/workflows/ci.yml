@@ -62,6 +62,9 @@ jobs:
       - name: Test on Windows
         run: npm test
 
+      - name: Verify Electron package scanner on Windows
+        run: npm run test:electron-secret-scanner
+
   secrets:
     name: author-secret-scan
     runs-on: ubuntu-latest
@@ -88,6 +91,9 @@ jobs:
 
   docker-smoke:
     name: author-docker-smoke
+    # Pull requests and merge queues validate the image here. Releases build,
+    # smoke-test, and scan it once in Docker Publish after this CI has passed.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     needs: [verify, secrets]
     steps:
@@ -123,4 +129,13 @@ jobs:
           WINDOWS: ${{ needs.windows.result }}
           SECRETS: ${{ needs.secrets.result }}
           DOCKER: ${{ needs.docker-smoke.result }}
-        run: test "$VERIFY" = success && test "$WINDOWS" = success && test "$SECRETS" = success && test "$DOCKER" = success
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$VERIFY" = success
+          test "$WINDOWS" = success
+          test "$SECRETS" = success
+          if [ "$EVENT_NAME" = push ]; then
+            test "$DOCKER" = skipped
+          else
+            test "$DOCKER" = success
+          fi
