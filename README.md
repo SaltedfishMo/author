@@ -241,6 +241,8 @@ Author supports multiple AI providers. Configure via **environment variables** o
 
 > 💡 **No API key required** for most editing features. AI features need at least one provider configured.
 
+> 🖥️ **Local models (Ollama, LM Studio, …):** choose **Custom compatible endpoint** and enter the model server's address (usually ending with `/v1`). For Docker / NAS setups and troubleshooting, see the [Local Model Guide](LOCAL_MODELS_EN.md).
+
 ---
 
 ## 🔍 Web Search Configuration
@@ -482,6 +484,9 @@ By using Author, you agree to our **Privacy Policy** and **Terms of Service**. T
 ---
 
 ## 🙏 Acknowledgments
+
+### 🛡️ Community Contributors
+- [@inliver233](https://github.com/inliver233) — Reported several security issues with reproduction steps and proposed fixes, covering update-endpoint authentication, server-side request address validation, link and export-title escaping, and error-message sanitization. All of them have been fixed
 
 ### 🤖 AI Companions
 | Name | Role |

@@ -86,7 +86,7 @@
 
 - 📥 [下载 Author 安装包（Windows）](https://github.com/YuanShiJiLoong/author/releases/latest)
 - 📱 [下载 Author APK（Android）](https://github.com/YuanShiJiLoong/author/releases/latest)
-- 💬 无法访问 GitHub？[加入 QQ 交流群：1087016949](https://qm.qq.com/q/wjRDkotw0E)，群文件中下载
+- 💬 无法访问 GitHub？[加入 QQ 交流群：1080766359（2 群）](https://qm.qq.com/q/kSZyifQ1Ne)，群文件中下载
 
 安装即用，所有功能开箱即得。
 
@@ -179,7 +179,7 @@ NEXT_PUBLIC_BASE_PATH=/app
 
 前往 [Releases](https://github.com/YuanShiJiLoong/author/releases/latest) 页面下载最新版本安装包，覆盖安装。数据存储在浏览器/Electron 用户配置中；升级前请导出作品备份，并保留原有访问地址和用户数据目录。
 
-> 💬 无法访问 GitHub？[加入 QQ 交流群：1087016949](https://qm.qq.com/q/wjRDkotw0E)，群文件中下载最新版本。
+> 💬 无法访问 GitHub？[加入 QQ 交流群：1080766359（2 群）](https://qm.qq.com/q/kSZyifQ1Ne)，群文件中下载最新版本。
 
 ### 源码部署用户
 
@@ -244,6 +244,8 @@ Author 支持多种 AI 供应商，你可以通过 **环境变量** 或 **应用
 > 💡 **提示：** 所有的 API Key 输入框都支持填写**多个 Key**（构建 Key 池）。只需用**逗号 `,` 或空格**分隔多个 Key，系统将会在每次请求时自动轮询（池化），有效防止单一 Key 触发并发或频控限制（Rate Limit）。
 
 > 💡 **无需 API Key 也能使用**大部分编辑功能。AI 功能需要至少配置一个供应商。
+
+> 🖥️ **本地模型（Ollama、LM Studio 等）：** 服务商选"自定义兼容端点"，填模型软件的地址（一般以 `/v1` 结尾）。Docker / NAS 部署的设置方法和常见问题，见 [本地模型连接指南](LOCAL_MODELS.md)。
 
 ---
 
@@ -535,7 +537,8 @@ Author 支持从多种格式导入设定集：**JSON / Markdown / TXT / DOCX / P
 
 ## 💬 社区交流
 
-- [QQ 交流群：1087016949（Author交流群）](https://qm.qq.com/q/wjRDkotw0E)
+- [QQ 交流群：1080766359（Author 交流群 2）](https://qm.qq.com/q/kSZyifQ1Ne)
+- [QQ 交流群：1087016949（Author 交流群 1，已满）](https://qm.qq.com/q/wjRDkotw0E)
 - [GitHub Issues](https://github.com/YuanShiJiLoong/author/issues) — 问题反馈与功能建议
 
 ---
@@ -554,6 +557,9 @@ Author 支持从多种格式导入设定集：**JSON / Markdown / TXT / DOCX / P
 ---
 
 ## 🙏 致谢
+
+### 🛡️ 社区贡献者
+- [@inliver233](https://github.com/inliver233) — 报告了多项安全问题并附上复现步骤和修复方案，涉及更新接口鉴权、服务端请求地址校验、链接与导出标题转义、错误信息脱敏。这些问题均已修复
 
 ### 🤖 AI 伙伴
 | 名称 | 作用 |

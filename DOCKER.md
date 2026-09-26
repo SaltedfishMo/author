@@ -142,6 +142,11 @@ A: 数据存储在浏览器的 IndexedDB 和 localStorage 中，与容器无关�
 ### Q: 可以在手机/平板上使用吗？
 A: 可以。部署到服务器后，在同一局域网内用手机浏览器访问 `http://服务器IP:3000` 即可。
 
+### Q: 怎么连接本地模型（Ollama、LM Studio 等）？提示"服务端默认禁止访问本机或内网地址"怎么办？
+A: Docker 版默认不允许连接本机或局域网地址。自己或信任的人使用的部署，在 `.env` 里加一行 `AUTHOR_ALLOW_PRIVATE_NETWORK=1`，然后执行 `docker compose up -d`。
+
+另外还要注意两点：容器里的 `localhost` 指向容器自己，API 地址要填模型所在机器的局域网 IP；模型软件也要设置成允许别的设备连接。完整步骤、各种部署情况、把模型也装在 NAS 上的方法和常见报错，见 [本地模型连接指南](LOCAL_MODELS.md)。
+
 ### Q: 支持 HTTPS 吗？
 A: Author 本身不内置 HTTPS。建议在前面加一层反向代理（如 Nginx、Caddy 或 Traefik），由反向代理处理 SSL 证书。
 

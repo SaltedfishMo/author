@@ -24,6 +24,47 @@ export function fingerprint(value) {
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
 
+// UTF-8 字节数：后端按字节限制请求体，中文一个字占 3 字节，按字符数估会低估约 3 倍。
+export function utf8ByteLength(str) {
+    let bytes = 0;
+    for (let i = 0; i < str.length; i++) {
+        const code = str.charCodeAt(i);
+        if (code < 0x80) bytes += 1;
+        else if (code < 0x800) bytes += 2;
+        else if (code >= 0xd800 && code <= 0xdbff && (str.charCodeAt(i + 1) & 0xfc00) === 0xdc00) { bytes += 4; i++; }
+        else bytes += 3;
+    }
+    return bytes;
+}
+
+const PUSH_BODY_OVERHEAD = utf8ByteLength(JSON.stringify({ items: [] }));
+
+// 推送切批：同时限制条数和请求体字节数（请求体即 JSON.stringify({ items: batch })）。
+// 只按条数切的话，章节一长整批就超过后端 ~1MB 上限，重试时还是同一批，永远推不上去。
+// 单条就放不进一个请求的条目放进 oversized，不发送，由调用方明确报错。
+export function splitPushBatches(items, { maxItems, maxBytes }) {
+    const batches = [];
+    const oversized = [];
+    let batch = [];
+    let bytes = PUSH_BODY_OVERHEAD;
+    for (const item of items) {
+        const itemBytes = utf8ByteLength(JSON.stringify(item));
+        if (PUSH_BODY_OVERHEAD + itemBytes > maxBytes) {
+            oversized.push({ item, bytes: PUSH_BODY_OVERHEAD + itemBytes });
+            continue;
+        }
+        if (batch.length > 0 && (batch.length >= maxItems || bytes + 1 + itemBytes > maxBytes)) {
+            batches.push(batch);
+            batch = [];
+            bytes = PUSH_BODY_OVERHEAD;
+        }
+        bytes += (batch.length > 0 ? 1 : 0) + itemBytes; // 1 = 条目之间的逗号
+        batch.push(item);
+    }
+    if (batch.length > 0) batches.push(batch);
+    return { batches, oversized };
+}
+
 // 存储键 → { kind, workId }
 export function parseKey(key) {
     if (key === 'author-works-index') return { kind: 'works_index', workId: '_index' };
@@ -47,7 +88,14 @@ export function itemToKey(it) {
 // 拆分：一个 key 的当前 value → 待推条目（只含变化/新增/删除）
 // prevItemState: 上次同步该 key 的 { itemId: { hash } | { deleted:true } }
 // 返回 { items, nextItemState }（nextItemState 供"推成功后"保存）
-export function diffKeyToItems(key, value, now, prevItemState = {}, pendingItemState = {}) {
+// options.freshClientUpdatedAt：true 表示整个 key、Set 表示其中指定条目，强制用 now
+// 作为版本，不用条目自带的 updatedAt。两个用途：
+//   1. 从备份 / WebDAV 恢复——条目带的是原设备的旧时间，按原值推会被判 stale；
+//      恢复是用户明确的"以这份为准"，它就该是最新版。
+//   2. 被判 stale 后的重推——重推的语义就是"我这份才是要保留的"。不换版本戳的话，
+//      服务器每次都会给出同样的 stale 结论，重试永远出不去（章节因为一直用 now
+//      所以没这个问题，只有设定和记忆组会卡死）。
+export function diffKeyToItems(key, value, now, prevItemState = {}, pendingItemState = {}, options = {}) {
     const meta = parseKey(key);
     if (!meta) return { items: [], nextItemState: {} };
     const { kind, workId } = meta;
@@ -78,8 +126,11 @@ export function diffKeyToItems(key, value, now, prevItemState = {}, pendingItemS
             next[itemId] = { hash }; // 未变，不推
             continue;
         }
-        // 变了（或新增）：章节用检测时间，设定/记忆组用自带 updatedAt
-        const clientUpdatedAt = (kind === 'chapter')
+        // 变了（或新增）：章节用检测时间，设定/记忆组用自带 updatedAt；
+        // 恢复场景下一律用 now，否则外来的旧时间戳会被云端判为过期。
+        const fresh = options.freshClientUpdatedAt;
+        const useNow = kind === 'chapter' || fresh === true || fresh?.has?.(itemId) === true;
+        const clientUpdatedAt = useNow
             ? now
             : (item.updatedAt ? new Date(item.updatedAt).toISOString() : now);
         items.push({ workId, kind, itemId, value: item, contentHash: hash, clientUpdatedAt });
