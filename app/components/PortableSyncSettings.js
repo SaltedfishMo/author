@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useI18n } from '../lib/useI18n';
+import { copyTextToClipboard } from '../lib/clipboard';
 
 const inputStyle = {
     width: '100%',
@@ -266,8 +267,11 @@ export default function PortableSyncSettings({ mode = 'all' }) {
     };
 
     const handleCopy = async (value) => {
-        await navigator.clipboard?.writeText(value);
-        showToast(text('已复制局域网同步链接', 'LAN sync link copied', 'Ссылка LAN-синхронизации скопирована'), 'success');
+        if (await copyTextToClipboard(value)) {
+            showToast(text('已复制局域网同步链接', 'LAN sync link copied', 'Ссылка LAN-синхронизации скопирована'), 'success');
+        } else {
+            showToast(text('复制失败，请手动选中链接复制', 'Copy failed. Select the link and copy it manually.', 'Не удалось скопировать. Выделите ссылку и скопируйте вручную.'), 'error');
+        }
     };
 
     const handleLanImport = async () => {
@@ -289,6 +293,8 @@ export default function PortableSyncSettings({ mode = 'all' }) {
 
     const canUseWebDav = form.webdav.endpoint && form.webdav.username && (password || hasPassword);
     const isBusy = (key) => busy === key;
+    // 桌面端的分享码离开这台电脑就用不了（不带地址），只给完整链接。
+    const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
 
     return (
         <>
@@ -441,18 +447,27 @@ export default function PortableSyncSettings({ mode = 'all' }) {
                             </div>
                         ))}
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            {text('分享码', 'Share Code', 'Код доступа')}：{lanShare.token} · {text(`${lanShare.entryCount} 项`, `${lanShare.entryCount} items`, `${lanShare.entryCount} элементов`)} · {text('到期', 'Expires', 'Истекает')} {formatTime(lanShare.expiresAt)}
+                            {!isElectron && <>{text('分享码', 'Share Code', 'Код доступа')}：{lanShare.token} · </>}{text(`${lanShare.entryCount} 项`, `${lanShare.entryCount} items`, `${lanShare.entryCount} элементов`)} · {text('到期', 'Expires', 'Истекает')} {formatTime(lanShare.expiresAt)}
                         </div>
+                        {isElectron && (
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                {text('手机打不开？确认两台设备连的是同一个 Wi-Fi，并在 Windows 防火墙里允许 Author 使用"专用网络"。', 'Phone can\'t open it? Make sure both devices are on the same Wi-Fi and Windows Firewall allows Author on private networks.', 'Телефон не открывает ссылку? Убедитесь, что оба устройства в одной Wi-Fi сети, а брандмауэр Windows разрешает Author в частных сетях.')}
+                            </div>
+                        )}
                     </div>
                 )}
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                     <div style={{ flex: 1 }}>
-                        <label style={labelStyle}>{text('导入链接、分享码或同步快照', 'Import Link, Share Code, or Sync Snapshot', 'Ссылка, код доступа или снимок синхронизации')}</label>
+                        <label style={labelStyle}>{isElectron
+                            ? text('导入链接或同步快照', 'Import Link or Sync Snapshot', 'Ссылка или снимок синхронизации')
+                            : text('导入链接、分享码或同步快照', 'Import Link, Share Code, or Sync Snapshot', 'Ссылка, код доступа или снимок синхронизации')}</label>
                         <input
                             value={lanSource}
                             onChange={e => setLanSource(e.target.value)}
-                            placeholder={text('http://192.168.x.x:3000/api/sync/lan?token=... 或粘贴手机复制的快照', 'http://192.168.x.x:3000/api/sync/lan?token=... or paste a snapshot copied from your phone', 'http://192.168.x.x:3000/api/sync/lan?token=... или вставьте снимок, скопированный с телефона')}
+                            placeholder={isElectron
+                                ? text('http://192.168.x.x:3001/api/sync/lan?token=... 或粘贴手机复制的快照', 'http://192.168.x.x:3001/api/sync/lan?token=... or paste a snapshot copied from your phone', 'http://192.168.x.x:3001/api/sync/lan?token=... или вставьте снимок, скопированный с телефона')
+                                : text('http://192.168.x.x:3000/api/sync/lan?token=... 或粘贴手机复制的快照', 'http://192.168.x.x:3000/api/sync/lan?token=... or paste a snapshot copied from your phone', 'http://192.168.x.x:3000/api/sync/lan?token=... или вставьте снимок, скопированный с телефона')}
                             style={inputStyle}
                         />
                     </div>

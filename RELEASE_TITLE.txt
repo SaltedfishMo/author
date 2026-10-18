@@ -1,1 +1,1 @@
-支持连接局域网本地模型，改进同步与长时间生成 | Local models on your LAN, more reliable sync, and uninterrupted long generations
+安全更新，适配各家新模型，新增 DeepSeek 联网搜索 | Security fixes, support for current AI models, and DeepSeek web search

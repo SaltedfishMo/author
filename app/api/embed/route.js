@@ -69,7 +69,7 @@ function getDefaultEmbeddingModel(provider) {
     if (provider === 'zhipu') return 'embedding-3';
     if (provider === 'bailian' || provider === 'qwen') return 'text-embedding-v4';
     if (provider === 'openai') return 'text-embedding-3-small';
-    if (provider === 'gemini') return 'text-embedding-004';
+    if (provider === 'gemini') return 'gemini-embedding-001'; // text-embedding-004 已于 2026-01-14 停服
     return '';
 }
 

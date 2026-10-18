@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { registerHooks } from 'node:module';
 import http from 'node:http';
-import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { readAiEvents } from '../app/lib/ai-stream.js';
+import { listenLocal } from './helpers/local-server.mjs';
 
 let instance = 0;
 const sse = value => `data: ${typeof value === 'string' ? value : JSON.stringify(value)}\n\n`;
@@ -143,8 +143,7 @@ for (const streaming of [false, true]) test(`real HTTP upstream closes on ${stre
         response.writeHead(200, { 'content-type': streaming ? 'text/event-stream' : 'application/json' });
         response.write(streaming ? sse(openText('partial')) : '{"choices":[');
     });
-    server.listen(0, '127.0.0.1');
-    await once(server, 'listening');
+    await listenLocal(server);
     t.after(() => { server.closeAllConnections(); server.close(); });
     const address = `http://127.0.0.1:${server.address().port}`;
     const api = await fixture('openai', (_url, options) => fetch(address, options));

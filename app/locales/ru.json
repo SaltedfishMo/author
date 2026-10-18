@@ -404,7 +404,16 @@
         "navSnapshots": "Снимки",
         "navMore": "Ещё",
         "navImport": "Импорт",
-        "navGithub": "GitHub"
+        "navGithub": "GitHub",
+        "exportVariantBody": "Только текст",
+        "exportVariantBodyHint": "Без заметок",
+        "exportVariantAnnotated": "С заметками",
+        "exportVariantAnnotatedHint": "Заметки показаны прямо в тексте",
+        "exportContentLabel": "Содержимое",
+        "exportAnnotatedBtn": "Экспорт с заметками",
+        "previewChapterCount": "Глав: {count}",
+        "duplicateTitleSuffix": " (новая)",
+        "duplicateTitleSuffixNumbered": " (новая {n})"
     },
     "page": {
         "noChapterHint": "Выберите или создайте главу, чтобы начать писать",
@@ -420,7 +429,14 @@
         "dialogueHistory": "История чата",
         "autoSnapshot": "Автосохранение",
         "autoSnapshotFail": "Ошибка автосохранения:",
-        "firstChapterTitle": "Глава 1"
+        "firstChapterTitle": "Глава 1",
+        "splitNeedsBothSides": "Поставьте курсор внутри текста: и до, и после точки разделения должен быть текст.",
+        "splitTitleSuffix": " (часть 2)",
+        "splitDone": "Глава разделена на «{first}» и «{second}»",
+        "mergeNoNext": "После этой главы нет главы для объединения.",
+        "mergeDone": "Глава «{title}» объединена с текущей",
+        "chapterMarkedSpecial": "\"{title}\" отмечена как специальная глава и будет пропущена при перенумерации",
+        "chapterRestoredNormal": "\"{title}\" восстановлена как обычная глава"
     },
     "snapshot": {
         "title": "Машина времени (Снимки версий)",
@@ -543,7 +559,7 @@
         "saveProfilePlaceholder": "Название профиля",
         "saveBtn": "Сохранить",
         "howToGetKey": "Как настроить API?",
-        "keyGuide": "• ZhipuAI: Посетите open.bigmodel.cn для регистрации\n• DeepSeek: Посетите platform.deepseek.com\n• Международные совместимые endpoints: укажите разрешенный relay или собственный URL; официальные прямые адреса не встроены\n• SiliconFlow: Посетите siliconflow.cn\n• Moonshot: Посетите platform.moonshot.cn",
+        "keyGuide": "• ZhipuAI: Посетите open.bigmodel.cn для регистрации\n• DeepSeek: Посетите platform.deepseek.com\n• Международные совместимые endpoints: укажите разрешенный relay или собственный URL; официальные прямые адреса этих платформ не встроены\n• SiliconFlow: Посетите siliconflow.cn\n• Moonshot: Посетите platform.moonshot.cn",
         "networkError": "Ошибка сетевого соединения",
         "fetchModelsFailed": "Не удалось получить список моделей",
         "fetchEmbedModelsFailed": "Не удалось получить список моделей Embedding",
@@ -562,6 +578,13 @@
         "reasoningAuto": "Авто (без вмешательства)",
         "reasoningNone": "Отключить мышление",
         "reasoningEffortDesc": "Управляет глубиной рассуждения, работает только с моделями, поддерживающими рассуждение",
+        "deepseekRetiredModel": "Это имя модели DeepSeek выведено из эксплуатации или временно перенаправляется на новую модель. Используйте deepseek-flash или deepseek-v4-pro.",
+        "deepseekRetiredBadge": "Устарела",
+        "providerHintVolcengine": "Для Volcengine Ark укажите в поле модели ID модели, например doubao-seed-2-1-pro-260915 (сначала активируйте модель в консоли), или ID inference endpoint, например ep-xxxx. Поддерживаются модели Doubao.",
+        "providerHintMinimax": "API-ключ MiniMax получите на открытой платформе. Поддерживаются модели серии MiniMax-M. Серии M2.5 / M2.7 будут отключены 2026-11-18; рекомендуется MiniMax-M3.",
+        "providerHintDeepseek": "Адрес API: https://api.deepseek.com. Рекомендуемые модели: deepseek-flash и deepseek-v4-pro. deepseek-chat и deepseek-reasoner отключены.",
+        "providerHintHunyuan": "Tencent Hunyuan перешел на TokenHub: адрес API — https://tokenhub.tencentmaas.com/v1, нужен новый API-ключ из консоли TokenHub. Старый адрес и ключи больше не работают.",
+        "providerHintPerplexity": "Perplexity прекратила поддержку Sonar в API chat/completions. Сейчас запросы автоматически преобразуются и пока работают, но это может прекратиться в любой момент.",
         "balance": "Баланс API",
         "balanceQuery": "Проверить баланс",
         "balanceQuerying": "Проверка…",
@@ -585,7 +608,16 @@
         "searchBuiltinCustomHint": "Использует встроенную функцию поиска провайдера (прокси должен поддерживать передачу параметра tools)",
         "searchEngine": "Поисковая система",
         "tavilyHint": "Бесплатно 1000/мес → tavily.com",
-        "exaHint": "Оплата за запрос, бонусный баланс при регистрации → exa.ai"
+        "exaHint": "Оплата за запрос, бонусный баланс при регистрации → exa.ai",
+        "searchToolDeepSeekPricing": "Поиск и чтение страниц оплачиваются за запрос с 1 ноября 2026 г.: 0,75 $ за 1000 успешных запросов, списывается с баланса DeepSeek. Неудачные и пустые запросы бесплатны. Не более 5 запросов в секунду на аккаунт (поиск и чтение страниц считаются отдельно).",
+        "searchDeepSeekSuggest": "У вас настроен DeepSeek: выберите «DeepSeek» как инструмент поиска, и ключ с адресом заполнятся автоматически, без отдельной регистрации.",
+        "searchDeepSeekKeyPlaceholder": "Оставьте пустым, чтобы использовать ключ настроенного провайдера DeepSeek",
+        "searchDeepSeekKeyFromProvider": "Заполнено из провайдера DeepSeek. Можно изменить.",
+        "searchDeepSeekBaseUrlPlaceholder": "Оставьте пустым, чтобы использовать {url}",
+        "searchDeepSeekReadWebpage": "Разрешить ИИ читать веб-страницы целиком",
+        "searchDeepSeekReadWebpageDesc": "Когда вы даёте ссылку в чате, ИИ просит DeepSeek прочитать текст страницы перед ответом. Не более 3 страниц на ответ; чтение каждой страницы — один запрос.",
+        "searchDeepSeekReadAfterSearch": "Читать страницы из результатов поиска",
+        "searchDeepSeekReadAfterSearchDesc": "Сначала ИИ читает результаты поиска, затем выбирает несколько страниц и читает их целиком перед ответом. Ответ подробнее, но приходит на несколько секунд позже и появляется целиком. Каждая прочитанная страница оплачивается как один запрос. В целях безопасности читаются только страницы из результатов поиска."
     },
     "preferences": {
         "intro": "Здесь вы можете в любое время изменить язык и визуальную тему. Все изменения вступают в силу немедленно и сохраняются локально.",
@@ -675,7 +707,9 @@
         "updateAvailable": "Доступна новая версия {version}!",
         "checkFailed": "Не удалось проверить обновления, попробуйте позже",
         "goUpdate": "Перейти к обновлению",
-        "close": "Закрыть"
+        "close": "Закрыть",
+        "codeUpdatedRestart": "Код обновлен. Перезапустите сервис, чтобы применить изменения.",
+        "codeUpdatedRestartVersion": "Код обновлен до v{version}. Перезапустите сервис, чтобы применить изменения."
     },
     "modelPicker": {
         "search": "Поиск моделей…",
@@ -733,7 +767,7 @@
         "codeSent": "Код отправлен, проверьте почту (и папку «Спам»)",
         "codeSendFailed": "Не удалось отправить код",
         "officialTitle": "Официальная облачная синхронизация",
-        "officialGuide": "Согласно требованиям регуляторов, официальная облачная синхронизация Author сначала запускается в веб-версии. Сборки для десктопа, мобильных и самостоятельного размещения не включают официальный сервер.",
+        "officialGuide": "Официальная облачная синхронизация Author сначала доступна в веб-версии. Сборки для десктопа, мобильных и самостоятельного размещения не включают официальный сервер.",
         "goOfficialApp": "Открыть официальную веб-версию",
         "officialWebHint": "Тот же интерфейс, что и в локальной версии; ваши работы хранятся в официальном облаке.",
         "officialAltHint": "Также можно переключиться на WebDAV / локальную сеть в разделе «Способ синхронизации» — без официального сервера.",
@@ -782,5 +816,16 @@
         "savingLocal": "Локальное сохранение...",
         "localSaveFailed": "Локальное сохранение не завершено. Повторите попытку перед выходом.",
         "localSaveErrorPrefix": "Ошибка локального сохранения: "
+    },
+    "slashCommands": {
+        "h1": "Заголовок 1",
+        "h2": "Заголовок 2",
+        "h3": "Заголовок 3",
+        "quote": "Цитата",
+        "bullet": "Маркированный список",
+        "ordered": "Нумерованный список",
+        "task": "Список задач",
+        "code": "Блок кода",
+        "divider": "Разделитель"
     }
 }

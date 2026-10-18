@@ -404,7 +404,16 @@
         "navSnapshots": "快照",
         "navMore": "更多",
         "navImport": "导入",
-        "navGithub": "GitHub"
+        "navGithub": "GitHub",
+        "exportVariantBody": "正文",
+        "exportVariantBodyHint": "不带批注、备注",
+        "exportVariantAnnotated": "批注版",
+        "exportVariantAnnotatedHint": "正文中展开备注",
+        "exportContentLabel": "内容",
+        "exportAnnotatedBtn": "导出批注版",
+        "previewChapterCount": "{count} 章",
+        "duplicateTitleSuffix": "（新）",
+        "duplicateTitleSuffixNumbered": "（新{n}）"
     },
     "page": {
         "noChapterHint": "请选择或创建一个章节开始写作",
@@ -420,7 +429,14 @@
         "dialogueHistory": "对话历史",
         "autoSnapshot": "系统自动存档",
         "autoSnapshotFail": "自动存档失败:",
-        "firstChapterTitle": "第一章"
+        "firstChapterTitle": "第一章",
+        "splitNeedsBothSides": "请把光标放在正文中间，拆分点前后都需要有内容",
+        "splitTitleSuffix": "（下）",
+        "splitDone": "已拆分为「{first}」和「{second}」",
+        "mergeNoNext": "当前章节后面没有可合并的章节",
+        "mergeDone": "已将「{title}」合并到当前章节",
+        "chapterMarkedSpecial": "「{title}」已设为特殊章节，重排编号时会跳过",
+        "chapterRestoredNormal": "「{title}」已恢复普通章节"
     },
     "snapshot": {
         "title": "时光机 (版本快照)",
@@ -543,7 +559,7 @@
         "saveProfilePlaceholder": "方案名称",
         "saveBtn": "保存",
         "howToGetKey": "如何配置 API？",
-        "keyGuide": "• 智谱AI：访问 open.bigmodel.cn 注册并创建 Key\n• DeepSeek：访问 platform.deepseek.com\n• 国际兼容端点：填写有权使用的中转或自建地址，不内置国外平台直连地址\n• SiliconFlow：访问 siliconflow.cn（新用户送额度）\n• Moonshot：访问 platform.moonshot.cn",
+        "keyGuide": "• 智谱AI：访问 open.bigmodel.cn 注册并创建 Key\n• DeepSeek：访问 platform.deepseek.com\n• 国际兼容端点：填写有权使用的中转或自建地址，不内置这些平台的官方直连地址\n• SiliconFlow：访问 siliconflow.cn（新用户送额度）\n• Moonshot：访问 platform.moonshot.cn",
         "networkError": "网络连接失败",
         "fetchModelsFailed": "拉取模型列表失败",
         "fetchEmbedModelsFailed": "拉取向量模型列表失败",
@@ -562,6 +578,13 @@
         "reasoningAuto": "自动（不干预）",
         "reasoningNone": "关闭思考",
         "reasoningEffortDesc": "控制模型的推理深度，仅对支持推理的模型生效",
+        "deepseekRetiredModel": "这个 DeepSeek 模型名已停用或只是临时转发到新模型，建议改用 deepseek-flash 或 deepseek-v4-pro。",
+        "deepseekRetiredBadge": "已退役",
+        "providerHintVolcengine": "火山方舟可以直接在模型字段填模型 ID（如 doubao-seed-2-1-pro-260915，需先在控制台开通该模型），也可以填推理接入点 ID（如 ep-xxxx）。支持豆包系列模型。",
+        "providerHintMinimax": "MiniMax API Key 在开放平台获取，支持 MiniMax-M 系列模型。M2.5 / M2.7 系列将于 2026-11-18 下线，建议使用 MiniMax-M3。",
+        "providerHintDeepseek": "接口地址：https://api.deepseek.com。推荐模型：deepseek-flash 和 deepseek-v4-pro；deepseek-chat、deepseek-reasoner 已停用。",
+        "providerHintHunyuan": "腾讯混元已迁移到 TokenHub：接口地址为 https://tokenhub.tencentmaas.com/v1，需要在 TokenHub 控制台重新创建 API Key。旧地址和旧 Key 已停用。",
+        "providerHintPerplexity": "Perplexity 已结束 Sonar 在 chat/completions 接口上的支持。目前请求会被自动转换，暂时还能用，但可能随时停止。",
         "balance": "API 余额",
         "balanceQuery": "查询余额",
         "balanceQuerying": "查询中…",
@@ -585,7 +608,16 @@
         "searchBuiltinCustomHint": "使用供应商自带的搜索功能（代理需支持转发 tools 参数）",
         "searchEngine": "搜索引擎",
         "tavilyHint": "免费 1000次/月 → tavily.com",
-        "exaHint": "按量计费，注册赠送额度 → exa.ai"
+        "exaHint": "按量计费，注册赠送额度 → exa.ai",
+        "searchToolDeepSeekPricing": "搜索和读取网页都按次收费（2026 年 11 月 1 日起）：每 1000 次成功请求 0.75 美元，从 DeepSeek 账户余额扣；失败和没有结果的不收费。每个账号每秒最多 5 次（搜索和读取网页分开算）。",
+        "searchDeepSeekSuggest": "你已经配置了 DeepSeek：搜索工具选「DeepSeek」会自动填好 Key 和地址，不用另外申请。",
+        "searchDeepSeekKeyPlaceholder": "留空则使用已配置的 DeepSeek 服务商 Key",
+        "searchDeepSeekKeyFromProvider": "已自动填入 DeepSeek 服务商的 Key，可以改成别的。",
+        "searchDeepSeekBaseUrlPlaceholder": "留空则使用 {url}",
+        "searchDeepSeekReadWebpage": "允许 AI 读取网页全文",
+        "searchDeepSeekReadWebpageDesc": "你在对话里给出网页链接时，AI 会让 DeepSeek 读取网页正文再回答。每次回答最多读 3 个网页，每读一个网页算一次请求。",
+        "searchDeepSeekReadAfterSearch": "搜索后再挑网页读全文",
+        "searchDeepSeekReadAfterSearchDesc": "AI 先看搜索结果，再挑几个网页读全文后回答。回答更详细，但要多等几秒，而且整段一起出现。每读一个网页算一次收费。为了安全，只会读搜索结果里出现过的网页。"
     },
     "preferences": {
         "intro": "在这里可以随时更改应用程序的语言和视觉主题偏好。所有的更改都会实时生效并保存在本地。",
@@ -675,7 +707,9 @@
         "updateAvailable": "发现新版本 {version}！",
         "checkFailed": "检查更新失败，请稍后再试",
         "goUpdate": "前往更新",
-        "close": "关闭"
+        "close": "关闭",
+        "codeUpdatedRestart": "代码已更新，请重启服务生效",
+        "codeUpdatedRestartVersion": "代码已更新到 v{version}，请重启服务生效"
     },
     "modelPicker": {
         "search": "搜索模型…",
@@ -733,7 +767,7 @@
         "codeSent": "验证码已发送，请查收邮箱（含垃圾箱）",
         "codeSendFailed": "验证码发送失败",
         "officialTitle": "官方云同步",
-        "officialGuide": "根据相关规定，Author 官方云同步服务目前先在网页版上线。桌面 / 移动 / 自部署版本暂不内置官方服务器。",
+        "officialGuide": "Author 官方云同步服务目前先在网页版上线。桌面 / 移动 / 自部署版本暂不内置官方服务器。",
         "goOfficialApp": "前往官方网页版",
         "officialWebHint": "打开后与本地版体验完全一致，作品数据存于官方云端。",
         "officialAltHint": "也可在「同步方式」里改用 WebDAV / 局域网，数据不经官方服务器。",
@@ -782,5 +816,16 @@
         "savingLocal": "正在保存到本机...",
         "localSaveFailed": "本地保存尚未完成，请重试保存后再退出。",
         "localSaveErrorPrefix": "本地保存失败："
+    },
+    "slashCommands": {
+        "h1": "一级标题",
+        "h2": "二级标题",
+        "h3": "三级标题",
+        "quote": "引用块",
+        "bullet": "无序列表",
+        "ordered": "有序列表",
+        "task": "任务列表",
+        "code": "代码块",
+        "divider": "分割线"
     }
 }

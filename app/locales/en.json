@@ -404,7 +404,16 @@
     "navSnapshots": "Snapshots",
     "navMore": "More",
     "navImport": "Import",
-    "navGithub": "GitHub"
+    "navGithub": "GitHub",
+    "exportVariantBody": "Text only",
+    "exportVariantBodyHint": "Without notes",
+    "exportVariantAnnotated": "With notes",
+    "exportVariantAnnotatedHint": "Notes shown inline in the text",
+    "exportContentLabel": "Content",
+    "exportAnnotatedBtn": "Export with Notes",
+    "previewChapterCount": "Chapters: {count}",
+    "duplicateTitleSuffix": " (new)",
+    "duplicateTitleSuffixNumbered": " (new {n})"
   },
   "page": {
     "noChapterHint": "Select or create a chapter to start writing",
@@ -420,7 +429,14 @@
     "dialogueHistory": "Chat History",
     "autoSnapshot": "Auto Snapshot",
     "autoSnapshotFail": "Auto snapshot failed:",
-    "firstChapterTitle": "Chapter 1"
+    "firstChapterTitle": "Chapter 1",
+    "splitNeedsBothSides": "Place the cursor inside the text. There must be content both before and after the split point.",
+    "splitTitleSuffix": " (Part 2)",
+    "splitDone": "Split into \"{first}\" and \"{second}\"",
+    "mergeNoNext": "There is no chapter after this one to merge.",
+    "mergeDone": "Merged \"{title}\" into the current chapter",
+    "chapterMarkedSpecial": "\"{title}\" marked as a special chapter and will be skipped when renumbering",
+    "chapterRestoredNormal": "\"{title}\" restored as a normal chapter"
   },
   "snapshot": {
     "title": "Time Machine (Version Snapshots)",
@@ -543,7 +559,7 @@
     "saveProfilePlaceholder": "Profile name",
     "saveBtn": "Save",
     "howToGetKey": "How to configure an API?",
-    "keyGuide": "• ZhipuAI: Visit open.bigmodel.cn to register and create a key\n• DeepSeek: Visit platform.deepseek.com\n• International-compatible endpoints: enter an authorized relay or self-hosted URL; no official direct foreign-provider URL is built in\n• SiliconFlow: Visit siliconflow.cn (credits for new users)\n• Moonshot: Visit platform.moonshot.cn",
+    "keyGuide": "• ZhipuAI: Visit open.bigmodel.cn to register and create a key\n• DeepSeek: Visit platform.deepseek.com\n• International-compatible endpoints: enter an authorized relay or self-hosted URL; official direct URLs for these providers are not built in\n• SiliconFlow: Visit siliconflow.cn (credits for new users)\n• Moonshot: Visit platform.moonshot.cn",
     "networkError": "Network connection failed",
     "fetchModelsFailed": "Failed to fetch model list",
     "fetchEmbedModelsFailed": "Failed to fetch embedding model list",
@@ -562,6 +578,13 @@
     "reasoningAuto": "Auto (no override)",
     "reasoningNone": "Disable Thinking",
     "reasoningEffortDesc": "Controls reasoning depth, only affects models that support reasoning",
+    "deepseekRetiredModel": "This DeepSeek model name is retired or only temporarily routed to a newer model. Use deepseek-flash or deepseek-v4-pro instead.",
+    "deepseekRetiredBadge": "Retired",
+    "providerHintVolcengine": "For Volcengine Ark, enter a model ID such as doubao-seed-2-1-pro-260915 in the model field (activate the model in the console first), or an inference endpoint ID such as ep-xxxx. Doubao models are supported.",
+    "providerHintMinimax": "Get the MiniMax API key from the open platform. MiniMax-M models are supported. The M2.5 / M2.7 series will be retired on 2026-11-18; MiniMax-M3 is recommended.",
+    "providerHintDeepseek": "API URL: https://api.deepseek.com. Recommended models: deepseek-flash and deepseek-v4-pro. deepseek-chat and deepseek-reasoner have been retired.",
+    "providerHintHunyuan": "Tencent Hunyuan has moved to TokenHub: the API URL is https://tokenhub.tencentmaas.com/v1, and you need a new API key from the TokenHub console. The old URL and keys no longer work.",
+    "providerHintPerplexity": "Perplexity has ended Sonar support on its chat/completions API. Requests are currently converted automatically and still work for now, but this may stop at any time.",
     "balance": "API Balance",
     "balanceQuery": "Check Balance",
     "balanceQuerying": "Checking…",
@@ -585,7 +608,16 @@
     "searchBuiltinCustomHint": "Uses the provider's native search (proxy must support forwarding tools parameter)",
     "searchEngine": "Search Engine",
     "tavilyHint": "Free 1000/month → tavily.com",
-    "exaHint": "Pay-per-use, free credits on signup → exa.ai"
+    "exaHint": "Pay-per-use, free credits on signup → exa.ai",
+    "searchToolDeepSeekPricing": "Search and page reading are billed per request from Nov 1, 2026: $0.75 per 1,000 successful requests, charged to your DeepSeek balance. Failed and empty requests are free. Up to 5 requests per second per account (search and page reading counted separately).",
+    "searchDeepSeekSuggest": "You have DeepSeek configured: choose \"DeepSeek\" as the search tool and its key and URL are filled in for you, with no extra sign-up.",
+    "searchDeepSeekKeyPlaceholder": "Leave blank to use your configured DeepSeek provider key",
+    "searchDeepSeekKeyFromProvider": "Filled in from your DeepSeek provider. You can change it.",
+    "searchDeepSeekBaseUrlPlaceholder": "Leave blank to use {url}",
+    "searchDeepSeekReadWebpage": "Let AI read full web pages",
+    "searchDeepSeekReadWebpageDesc": "When you give a web link in the chat, the AI has DeepSeek read the page text before answering. Up to 3 pages per answer; each page read counts as one request.",
+    "searchDeepSeekReadAfterSearch": "Read pages picked from search results",
+    "searchDeepSeekReadAfterSearchDesc": "The AI first reads the search results, then picks a few pages to read in full before answering. Answers are more detailed but take a few seconds longer and appear all at once. Each page read is billed as one request. For safety, only pages from the search results can be read."
   },
   "preferences": {
     "intro": "You can change your language and visual theme preferences here at any time. All changes take effect immediately and are saved locally.",
@@ -675,7 +707,9 @@
     "updateAvailable": "New version {version} available!",
     "checkFailed": "Failed to check for updates, please try again later",
     "goUpdate": "Go to Update",
-    "close": "Close"
+    "close": "Close",
+    "codeUpdatedRestart": "Code updated. Restart the service to apply it.",
+    "codeUpdatedRestartVersion": "Code updated to v{version}. Restart the service to apply it."
   },
   "modelPicker": {
     "search": "Search models…",
@@ -733,7 +767,7 @@
     "codeSent": "Code sent — check your email (and spam)",
     "codeSendFailed": "Failed to send code",
     "officialTitle": "Official Cloud Sync",
-    "officialGuide": "Due to regulatory requirements, Author's official cloud sync currently launches on the web version first. The desktop / mobile / self-hosted builds don't bundle the official server.",
+    "officialGuide": "Author's official cloud sync is currently available on the web version first. The desktop / mobile / self-hosted builds don't bundle the official server.",
     "goOfficialApp": "Open the official web app",
     "officialWebHint": "Same experience as the local app; your work is stored in the official cloud.",
     "officialAltHint": "You can also switch to WebDAV / LAN under \"Sync Method\" — no official server involved.",
@@ -782,5 +816,16 @@
     "savingLocal": "Saving locally...",
     "localSaveFailed": "Local saving has not completed. Retry before exiting.",
     "localSaveErrorPrefix": "Local save failed: "
+  },
+  "slashCommands": {
+    "h1": "Heading 1",
+    "h2": "Heading 2",
+    "h3": "Heading 3",
+    "quote": "Quote",
+    "bullet": "Bulleted list",
+    "ordered": "Numbered list",
+    "task": "Task list",
+    "code": "Code block",
+    "divider": "Divider"
   }
 }

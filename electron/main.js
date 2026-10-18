@@ -11,6 +11,7 @@ const {
     selectStableDesktopPort,
 } = require('./origin-policy.cjs');
 const { createExitController } = require('./exit-controller.cjs');
+const { createLanShareGateway } = require('./lan-share-gateway.cjs');
 
 // 加载 .env.local（轻量实现，无需 dotenv 依赖）
 (function loadEnvFile() {
@@ -192,6 +193,11 @@ let rendererBreadcrumbs = [];
 let serverIdentityVerified = false;
 const APP_WINDOW_TITLE = 'Author';
 const DESKTOP_CAPABILITY_COOKIE = 'author-desktop-capability';
+// 内置服务只对本机开放；局域网分享另走这个只认分享码的网关，用到时才开。
+const lanShareGateway = createLanShareGateway({
+    getUpstream: () => ({ port: actualPort, capability: desktopCapability }),
+    log: (message) => log(message),
+});
 
 function getServerUrl(host = STABLE_DESKTOP_HOST) {
     return getDesktopServerUrl(actualPort, host);
@@ -342,6 +348,11 @@ ipcMain.handle('open-diagnostic-log-file', async (event) => {
     } catch (err) {
         return { success: false, error: err.message, logFile };
     }
+});
+
+ipcMain.handle('lan-share-gateway-open', async (event, share) => {
+    assertTrustedIpcSender(event);
+    return await lanShareGateway.open({ token: share?.token, expiresAt: share?.expiresAt });
 });
 
 ipcMain.handle('secure-store-set', async (event, key, value) => {
@@ -1382,6 +1393,7 @@ app.on('window-all-closed', () => {
 // before-quit runs before the cancelable close/save handshake. Stop the backend
 // only after all windows have closed, so cancel/save/sync IPC stays trusted.
 app.on('will-quit', () => {
+    lanShareGateway.close();
     const stoppedServer = serverProcess;
     serverProcess = null;
     if (stoppedServer) stoppedServer.kill();

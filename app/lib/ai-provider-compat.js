@@ -5,9 +5,15 @@ const LEGACY_PROVIDER_MAP = {
     'custom-claude': 'claude',
 };
 
+// 已整体停服的服务商：旧配置转为自定义兼容端点，保留地址、Key 和快切模型，名称标注已停服
+const RETIRED_PROVIDER_NAMES = {
+    yi: '零一万物（已停服）',
+    github: 'GitHub Models（已停服）',
+};
+
 const FOREIGN_COMPATIBLE_PROVIDER_TYPES = new Set([
     'openai', 'claude', 'gemini', 'groq', 'mistral', 'cohere', 'together',
-    'perplexity', 'xai', 'cerebras', 'github', 'openrouter',
+    'perplexity', 'xai', 'cerebras', 'openrouter',
 ]);
 
 const LEGACY_FOREIGN_DIRECT_BASE_URLS = new Set([
@@ -23,7 +29,6 @@ const LEGACY_FOREIGN_DIRECT_BASE_URLS = new Set([
     'https://api.perplexity.ai',
     'https://api.x.ai/v1',
     'https://api.cerebras.ai/v1',
-    'https://models.inference.ai.azure.com',
     'https://openrouter.ai/api/v1',
 ]);
 
@@ -46,6 +51,7 @@ function compatibleGeminiBaseUrl(value) {
 }
 
 export function normalizeCompatibleProviderType(providerType) {
+    if (RETIRED_PROVIDER_NAMES[providerType]) return 'custom';
     return LEGACY_PROVIDER_MAP[providerType] || providerType || '';
 }
 
@@ -112,6 +118,15 @@ function migrateProviderConfigs(apiConfig) {
         const nextType = normalizeCompatibleProviderType(oldType);
         if (migrateProviderEntry(entry, oldType)) changed = true;
 
+        // 停服服务商的配置原地保留为自定义端点实例，不并入已有的自定义端点
+        if (RETIRED_PROVIDER_NAMES[oldType]) {
+            if (!entry.instanceName) {
+                entry.instanceName = RETIRED_PROVIDER_NAMES[oldType];
+                changed = true;
+            }
+            continue;
+        }
+
         if (!LEGACY_PROVIDER_MAP[key]) continue;
         if (!configs[nextType]) {
             configs[nextType] = entry;
@@ -165,7 +180,8 @@ export function migrateApiConfigToCompatible(apiConfig) {
         : (apiConfig.providerType || apiConfig.provider || '');
     const nextType = normalizeCompatibleProviderType(oldType);
 
-    if (apiConfig.provider && LEGACY_PROVIDER_MAP[apiConfig.provider] && !apiConfig.providerConfigs?.[apiConfig.provider]) {
+    const isRenamedProvider = LEGACY_PROVIDER_MAP[apiConfig.provider] || RETIRED_PROVIDER_NAMES[apiConfig.provider];
+    if (apiConfig.provider && isRenamedProvider && !apiConfig.providerConfigs?.[apiConfig.provider]) {
         apiConfig.provider = normalizeCompatibleProviderType(apiConfig.provider);
         changed = true;
     }

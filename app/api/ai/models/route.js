@@ -75,7 +75,6 @@ const KNOWN_EMBED_MODELS = {
     doubao: [{ id: 'doubao-embedding', displayName: 'Doubao Embedding' }],
     baichuan: [{ id: 'Baichuan-Text-Embedding', displayName: 'Baichuan Embedding' }],
     hunyuan: [{ id: 'hunyuan-embedding', displayName: 'Hunyuan Embedding' }],
-    yi: [{ id: 'yi-embedding', displayName: 'Yi Embedding' }],
     openai: [{ id: 'text-embedding-3-small', displayName: 'Text Embedding 3 Small' }, { id: 'text-embedding-3-large', displayName: 'Text Embedding 3 Large' }, { id: 'text-embedding-ada-002', displayName: 'Ada 002' }],
     siliconflow: [{ id: 'BAAI/bge-m3', displayName: 'BGE-M3' }, { id: 'BAAI/bge-large-zh-v1.5', displayName: 'BGE Large ZH v1.5' }],
 };
@@ -229,6 +228,24 @@ async function handleFetchError(response) {
     );
 }
 
+// 兼容端点不提供 /v1/models 时的兜底列表（仅列仍在服役、未宣布停用的模型）
+const CLAUDE_FALLBACK_MODELS = [
+    { id: 'claude-opus-5-5', displayName: 'Claude Opus 5.5' },
+    { id: 'claude-sonnet-5-5', displayName: 'Claude Sonnet 5.5' },
+    { id: 'claude-haiku-5-5', displayName: 'Claude Haiku 5.5' },
+    { id: 'claude-fable-5-1', displayName: 'Claude Fable 5.1' },
+    { id: 'claude-fable-5', displayName: 'Claude Fable 5' },
+    { id: 'claude-opus-5', displayName: 'Claude Opus 5' },
+    { id: 'claude-sonnet-5', displayName: 'Claude Sonnet 5' },
+    { id: 'claude-opus-4-8', displayName: 'Claude Opus 4.8' },
+    { id: 'claude-opus-4-7', displayName: 'Claude Opus 4.7' },
+    { id: 'claude-opus-4-6', displayName: 'Claude Opus 4.6' },
+    { id: 'claude-sonnet-4-6', displayName: 'Claude Sonnet 4.6' },
+    { id: 'claude-haiku-4-5', displayName: 'Claude Haiku 4.5' },
+    { id: 'claude-opus-4-5', displayName: 'Claude Opus 4.5' },
+    { id: 'claude-sonnet-4-5', displayName: 'Claude Sonnet 4.5' },
+];
+
 // Claude 兼容模型列表（Anthropic /v1/models 协议）
 async function fetchClaudeModels(apiKey, baseUrl, proxyUrl) {
     const base = String(baseUrl || '').trim().replace(/\/+$/, '');
@@ -248,11 +265,7 @@ async function fetchClaudeModels(apiKey, baseUrl, proxyUrl) {
 
     if (!response.ok) {
         if ([404, 405, 501].includes(response.status)) {
-            return NextResponse.json({ models: [
-                { id: 'claude-sonnet-4-20250514', displayName: 'Claude Sonnet 4' },
-                { id: 'claude-3-7-sonnet-20250219', displayName: 'Claude 3.7 Sonnet' },
-                { id: 'claude-3-5-haiku-20241022', displayName: 'Claude 3.5 Haiku' },
-            ] });
+            return NextResponse.json({ models: CLAUDE_FALLBACK_MODELS });
         }
         return handleFetchError(response);
     }

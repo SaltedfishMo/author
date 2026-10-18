@@ -41,7 +41,7 @@ I watched the versatility of these models being gutted. I don't want us to live 
 - Real-time word / character / paragraph count
 
 ### 🤖 AI Writing Assistant
-- **Multi-provider support**: ZhipuAI GLM-4 / DeepSeek / OpenAI / Google Gemini / Claude / SiliconFlow / Volcengine / Moonshot + custom endpoints
+- **Multi-provider support**: ZhipuAI GLM / DeepSeek / OpenAI / Google Gemini / Claude / SiliconFlow / Volcengine / Alibaba Cloud Bailian / MiniMax / Moonshot + custom endpoints
 - **Smart model fetching** — one-click fetch full model list from API, keep saved models manageable even if a provider stops returning them
 - **Continue / Rewrite / Polish / Expand** — one-click generation
 - **Immersive Writing Engine (Ghost Text)** streaming preview — see AI output in real-time like Cursor, with accept/reject
@@ -223,7 +223,7 @@ Author supports multiple AI providers. Configure via **environment variables** o
 
 | Provider | Env Variable | Get API Key |
 |----------|-------------|-------------|
-| ZhipuAI (GLM-4) | `ZHIPU_API_KEY` | [open.bigmodel.cn](https://open.bigmodel.cn/) |
+| ZhipuAI (GLM) | `ZHIPU_API_KEY` | [open.bigmodel.cn](https://open.bigmodel.cn/) |
 | Google Gemini (Native) | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) |
 | Google Gemini (OpenAI-compat) | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com/apikey) |
 | DeepSeek | In-app config | [platform.deepseek.com](https://platform.deepseek.com/) |
@@ -253,9 +253,10 @@ Author supports AI-powered web search for real-time information. Different provi
 |----------|--------------|-------------|
 | Gemini (Native) | Built-in Google Search | No extra config needed |
 | OpenAI / OpenAI Responses | Built-in Web Search | No extra config (needs search model) |
-| DeepSeek / ZhipuAI / SiliconFlow / Others | External Search API | **Search engine Key required** |
+| DeepSeek | DeepSeek Search (external) | Reuses your DeepSeek API Key |
+| ZhipuAI / SiliconFlow / Claude / Others | External Search API | **Search tool Key required** (Tavily, Exa, or DeepSeek) |
 
-For providers without built-in search, choose a search engine and enter your API Key:
+For providers without built-in search, choose a search tool (Tavily, Exa, or DeepSeek) and enter its API Key:
 
 ### Tavily (Recommended — Simplest)
 
@@ -273,6 +274,16 @@ For providers without built-in search, choose a search engine and enter your API
 
 > Free tier: **1,000 requests/month** — Semantic search optimized for AI use cases
 
+### DeepSeek Search
+
+1. If DeepSeek is already set up in Author: go to Author Settings → Web Search → select **DeepSeek**. The Key and URL are filled in automatically
+2. Otherwise: create an API Key at [platform.deepseek.com](https://platform.deepseek.com/api_keys), select **DeepSeek**, and paste it
+
+- **Read web pages**: with "Let AI read full web pages" on, paste a link in the chat and the AI reads the page before answering (up to 3 pages per answer)
+- **Read pages picked from search results** (off by default): the AI picks a few pages from the search results and reads them in full. More detailed, but a few seconds slower
+
+> Pricing: billed per request from Nov 1, 2026. Search and page reading cost $0.75 per 1,000 successful requests, charged to your DeepSeek balance; failed or empty requests are free. Up to 5 requests per second per account
+
 ### Custom Search API URL (Proxy Pool)
 
 If you've set up a Tavily/Exa proxy pool using multiple free-tier accounts, you can configure a **custom API URL** in the search settings:
@@ -282,7 +293,7 @@ If you've set up a Tavily/Exa proxy pool using multiple free-tier accounts, you 
 3. Enter your proxy URL, e.g. `https://your-proxy.com`
 4. Leave blank to use the official default URL
 
-> 💡 The system automatically appends `/search` to your URL — no need to add it manually
+> 💡 For Tavily / Exa, the system automatically appends `/search` to your URL — no need to add it manually
 
 ---
 

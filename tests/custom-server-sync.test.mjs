@@ -462,11 +462,11 @@ test('force pull clears a local key when the remote batch contains only a tombst
 });
 
 // ==================== 长篇与手机端 ====================
-// 用户反馈：手机上用官网"只能拉取，上传不上去"。两个根因：
-//   1. 推送只按条数切批，长篇整批超过后端 ~1 MiB 请求体上限，每次重试都是同一批；
+// 长篇在手机上推不上去的两个根因：
+//   1. 推送只按条数切批，长篇整批超过服务端请求体上限，每次重试都是同一批；
 //   2. 待推队列只在内存里，手机浏览器切到后台就被冻结或回收，5 分钟定时器等不到。
 
-const BACKEND_BODY_LIMIT = 1024 * 1024;
+const SERVER_BODY_LIMIT = 1024 * 1024; // 测试里模拟的服务端请求体上限
 const tooLarge = () => ({ ok: false, status: 413, json: async () => ({ ok: false }) });
 const settle = async () => { for (let i = 0; i < 20; i++) await new Promise(resolve => setImmediate(resolve)); };
 const pushRequests = f => f.requests.filter(request => request.path.endsWith('/push'));
@@ -475,7 +475,7 @@ test('长篇按字节切批上传，每个请求都在后端上限内，全部�
     // 60 章 × 每章 6000 字：旧逻辑一批 60 章约 1.1 MB，必然 413。
     const local = Array.from({ length: 60 }, (_, index) => chapter(`c${index}`, `第${index}章`.padEnd(6000, '文')));
     const f = await fixture(t, { local });
-    f.env.push = async items => Buffer.byteLength(JSON.stringify({ items })) > BACKEND_BODY_LIMIT
+    f.env.push = async items => Buffer.byteLength(JSON.stringify({ items })) > SERVER_BODY_LIMIT
         ? tooLarge()
         : response({ ok: true, results: items.map(item => acknowledgement(item)) });
     f.sync.customEnqueue(KEY);
@@ -492,7 +492,7 @@ test('单章超过上限：不发送、明确说是哪一章，其余章节照�
     const huge = { ...chapter('huge', '巨'.repeat(400_000)), title: '整本导入' };
     const local = [chapter('a', 'short a'), huge, chapter('b', 'short b')];
     const f = await fixture(t, { local });
-    f.env.push = async items => Buffer.byteLength(JSON.stringify({ items })) > BACKEND_BODY_LIMIT
+    f.env.push = async items => Buffer.byteLength(JSON.stringify({ items })) > SERVER_BODY_LIMIT
         ? tooLarge()
         : response({ ok: true, results: items.map(item => acknowledgement(item)) });
     f.sync.customEnqueue(KEY);

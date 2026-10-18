@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useAppStore } from './store/useAppStore';
-import { useI18n } from './lib/useI18n';
+import { useI18n, translate, LANGUAGES } from './lib/useI18n';
+import { getDefaultFirstChapterRetitle } from './lib/first-chapter-title';
 import { Menu, Sparkles, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import Tooltip from './components/ui/Tooltip';
 import BeianNotice from './components/BeianNotice';
@@ -79,6 +80,11 @@ function getWorkScopedId(workId) {
   return workId || getActiveWorkId() || 'work-default';
 }
 
+// 还没选语言时按中文起名，与界面在语言确定前的显示一致
+function getFirstChapterTitle(language) {
+  return translate(language || 'zh', 'page.firstChapterTitle');
+}
+
 function isWritableChapter(chapter) {
   return chapter && (chapter.type || 'chapter') !== 'volume';
 }
@@ -139,14 +145,15 @@ function tryNextChapterTitle(title) {
   return null;
 }
 
-function makeUniqueChapterTitle(chapters, title) {
+function makeUniqueChapterTitle(chapters, title, t) {
   const existing = new Set((chapters || []).map(ch => ch?.title).filter(Boolean));
   if (!existing.has(title)) return title;
-  const first = `${title}（新）`;
+  const first = `${title}${t('sidebar.duplicateTitleSuffix')}`;
   if (!existing.has(first)) return first;
+  const numbered = (n) => `${title}${t('sidebar.duplicateTitleSuffixNumbered', { n })}`;
   let index = 2;
-  while (existing.has(`${title}（新${index}）`)) index++;
-  return `${title}（新${index}）`;
+  while (existing.has(numbered(index))) index++;
+  return numbered(index);
 }
 
 export default function Home() {
@@ -411,7 +418,8 @@ export default function Home() {
 
     chaptersWorkIdRef.current = targetWorkId;
     if (saved.length === 0) {
-      const first = await createChapter(t('page.firstChapterTitle'), targetWorkId);
+      // 直接读当前语言：启动时调用的这份回调还是语言生效前创建的，里面的 t 固定是中文
+      const first = await createChapter(getFirstChapterTitle(useAppStore.getState().language), targetWorkId);
       if (chapterLoadSeqRef.current !== loadSeq) return;
       setChapters([first]);
       setActiveChapterId(first.id);
@@ -422,7 +430,30 @@ export default function Home() {
       setActiveChapterId(targetChapter?.id || null);
       if (targetChapter?.id) rememberChapterId(targetWorkId, targetChapter.id);
     }
-  }, [t, setChapters, setActiveChapterId]);
+  }, [setChapters, setActiveChapterId]);
+
+  // 全新打开时，第一章可能在欢迎窗口选语言之前就建好了，只能先叫“第一章”。
+  // 语言选定后，如果它还没被改过名、也没写内容，就换成所选语言的默认名。
+  // 只在首次选语言时做这一次，之后在设置里切换语言不会改章节名。
+  const storeLanguage = useAppStore(state => state.language);
+  const firstChapterTitlePendingRef = useRef(!storeLanguage);
+  useEffect(() => {
+    if (!firstChapterTitlePendingRef.current || !storeLanguage) return;
+    const workId = chaptersWorkIdRef.current;
+    // 章节还没加载完（或第一章正在创建）时先等，加载完会因 chapters 变化再进来
+    if (!workId || chapters.length === 0) return;
+    firstChapterTitlePendingRef.current = false;
+    const retitle = getDefaultFirstChapterRetitle(chapters, {
+      defaultTitles: LANGUAGES.map(getFirstChapterTitle),
+      nextTitle: getFirstChapterTitle(storeLanguage),
+    });
+    if (!retitle) return;
+    updateChapter(retitle.id, { title: retitle.title }, workId)
+      .then(updated => {
+        if (updated) updateChapterStore(retitle.id, { title: retitle.title });
+      })
+      .catch(error => console.warn('[默认章名] 改名失败', error));
+  }, [storeLanguage, chapters, updateChapterStore]);
 
   // 初始化数据
   useEffect(() => {
@@ -603,16 +634,22 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [activeWorkId, activeChapterId, activeSession?.id, settingsVersion, chatHistory.length, chaptersFingerprint, memoryGroupsVersion, t]);
 
+  // 定时器只注册一次，存档名通过 ref 读取最新语言，切换语言不会重置备份计时
+  const latestTRef = useRef(t);
+  useEffect(() => {
+    latestTRef.current = t;
+  }, [t]);
+
   // 定时自动存档 (每 15 分钟)
   useEffect(() => {
-    // 首次加载后延迟 5 分钟做一次初始存档，之后每 15 分钟做一次
-    const initialTimer = setTimeout(() => {
-      createSnapshot(t('page.autoSnapshot'), 'auto').catch(e => console.error(t('page.autoSnapshotFail'), e));
-    }, 5 * 60 * 1000);
+    const runAutoSnapshot = () => {
+      const translate = latestTRef.current;
+      createSnapshot(translate('page.autoSnapshot'), 'auto').catch(e => console.error(translate('page.autoSnapshotFail'), e));
+    };
 
-    const intervalTimer = setInterval(() => {
-      createSnapshot(t('page.autoSnapshot'), 'auto').catch(e => console.error(t('page.autoSnapshotFail'), e));
-    }, 15 * 60 * 1000);
+    // 首次加载后延迟 5 分钟做一次初始存档，之后每 15 分钟做一次
+    const initialTimer = setTimeout(runAutoSnapshot, 5 * 60 * 1000);
+    const intervalTimer = setInterval(runAutoSnapshot, 15 * 60 * 1000);
 
     return () => {
       clearTimeout(initialTimer);
@@ -637,12 +674,10 @@ export default function Home() {
     await updateChapter(activeChapter.id, { numberingIgnored }, activeWorkId);
     updateChapterStore(activeChapter.id, { numberingIgnored });
     showToast(
-      numberingIgnored
-        ? `「${activeChapter.title}」已设为特殊章节，重排编号时会跳过`
-        : `「${activeChapter.title}」已恢复普通章节`,
+      t(numberingIgnored ? 'page.chapterMarkedSpecial' : 'page.chapterRestoredNormal', { title: activeChapter.title }),
       'success'
     );
-  }, [activeChapter, activeWorkId, showToast, updateChapterStore]);
+  }, [activeChapter, activeWorkId, showToast, updateChapterStore, t]);
 
   const handleEditorUpdate = useCallback(async ({ chapterId: targetChapterId, workId: targetWorkId, html, wordCount, baseContent, externalVersions, receipt }) => {
     // Destructive writes must name the document that actually produced the HTML.
@@ -669,7 +704,7 @@ export default function Home() {
   const handleSplitActiveChapter = useCallback(async (draft) => {
     if (!activeChapter || !isWritableChapter(activeChapter)) return null;
     if (!draft || draft.beforeWordCount <= 0 || draft.afterWordCount <= 0) {
-      showToast('请把光标放在正文中间，拆分点前后都需要有内容', 'error');
+      showToast(t('page.splitNeedsBothSides'), 'error');
       return null;
     }
 
@@ -678,11 +713,12 @@ export default function Home() {
 
     const now = new Date().toISOString();
     const fallbackTitle = activeChapter.title
-      ? `${activeChapter.title}（下）`
+      ? `${activeChapter.title}${t('page.splitTitleSuffix')}`
       : t('sidebar.defaultChapterTitle').replace('{num}', chapters.length + 1);
     const title = makeUniqueChapterTitle(
       chapters,
       tryNextChapterTitle(activeChapter.title) || fallbackTitle,
+      t,
     );
     const newChapter = {
       id: generateId(),
@@ -706,7 +742,7 @@ export default function Home() {
     await saveChapters(nextChapters, activeWorkId);
     setChapters(nextChapters);
     setActiveChapterId(newChapter.id);
-    showToast(`已拆分为「${activeChapter.title}」和「${newChapter.title}」`, 'success');
+    showToast(t('page.splitDone', { first: activeChapter.title, second: newChapter.title }), 'success');
     return { chapterId: newChapter.id };
   }, [activeChapter, activeWorkId, chapters, setActiveChapterId, setChapters, showToast, t]);
 
@@ -720,7 +756,7 @@ export default function Home() {
       index > currentIndex && isWritableChapter(chapter)
     );
     if (nextIndex === -1) {
-      showToast('当前章节后面没有可合并的章节', 'error');
+      showToast(t('page.mergeNoNext'), 'error');
       return null;
     }
 
@@ -742,9 +778,9 @@ export default function Home() {
     await saveChapters(nextChapters, activeWorkId);
     setChapters(nextChapters);
     setActiveChapterId(activeChapter.id);
-    showToast(`已将「${nextChapter.title}」合并到当前章节`, 'success');
+    showToast(t('page.mergeDone', { title: nextChapter.title }), 'success');
     return { content: mergedContent, chapterId: activeChapter.id };
-  }, [activeChapter, activeWorkId, chapters, setActiveChapterId, setChapters, showToast]);
+  }, [activeChapter, activeWorkId, chapters, setActiveChapterId, setChapters, showToast, t]);
 
   // Inline AI 回调：编辑器调用此函数发起 AI 请求
   const handleInlineAiRequest = useCallback(async ({ mode, text, instruction, signal, onChunk }) => {

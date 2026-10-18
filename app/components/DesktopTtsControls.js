@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, Copy, Pause, Play, RefreshCw, Settings2, ShieldCheck, Square, Volume2, X } from 'lucide-react';
 import { useI18n } from '../lib/useI18n';
 import { apiPath } from '../lib/api-base';
+import { copyTextToClipboard } from '../lib/clipboard';
 
 const RATE_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const RATE_STORAGE_KEY = 'author-tts-rate';
@@ -696,11 +697,10 @@ export default function DesktopTtsControls({ editor, chapterId }) {
 
     const copyErrorReport = async () => {
         if (!errorReport) return;
-        try {
-            await navigator.clipboard.writeText(errorReport);
+        if (await copyTextToClipboard(errorReport)) {
             setErrorCopied(true);
             window.setTimeout(() => setErrorCopied(false), 1600);
-        } catch {
+        } else {
             setErrorCopied(false);
         }
     };
@@ -779,7 +779,7 @@ export default function DesktopTtsControls({ editor, chapterId }) {
                                 <span className="tts-config-heading-icon"><Settings2 size={16} /></span>
                                 <div>
                                     <strong>{text('本机音源设置', 'Local voice settings', 'Локальные настройки голоса')}</strong>
-                                    <span>{text('选择协议兼容端点，不内置国外平台直连地址', 'Choose protocol-compatible endpoints; no direct foreign-provider URLs are built in', 'Выберите совместимый endpoint без встроенных прямых адресов')}</span>
+                                    <span>{text('选择协议兼容端点，不内置官方直连地址', 'Choose protocol-compatible endpoints; official direct URLs are not built in', 'Выберите совместимый endpoint; официальные прямые адреса не встроены')}</span>
                                 </div>
                             </div>
                             <button type="button" onClick={() => setPopoverOpen(false)} aria-label={text('关闭', 'Close', 'Закрыть')}><X size={16} /></button>

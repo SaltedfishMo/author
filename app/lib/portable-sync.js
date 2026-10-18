@@ -788,6 +788,16 @@ export async function createLanShare(minutes) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error) throw new Error(localizeApiError(data, tt) || tt('创建局域网分享失败', 'Failed to create LAN share.', 'Не удалось создать общий доступ по локальной сети.'));
+    // 桌面端内置服务只对本机开放，手机要走主进程开的分享网关，链接以网关为准。
+    if (typeof window !== 'undefined' && window.electronAPI?.openLanShareGateway) {
+        let gateway;
+        try {
+            gateway = await window.electronAPI.openLanShareGateway({ token: data.token, expiresAt: data.expiresAt });
+        } catch {
+            throw localizedError('无法开启局域网分享端口，请检查防火墙或安全软件设置', 'Could not open the LAN share port. Check your firewall or security software.', 'Не удалось открыть порт для общего доступа по LAN. Проверьте брандмауэр или защитное ПО.');
+        }
+        return { ...data, urls: Array.isArray(gateway?.urls) ? gateway.urls : [] };
+    }
     return data;
 }
 
@@ -797,11 +807,14 @@ export async function importLanShare(source) {
     if (raw.startsWith('{')) {
         return await applySyncSnapshot(JSON.parse(raw));
     }
-    const url = /^https?:\/\//i.test(raw)
-        ? raw
-        : apiPath(`/api/sync/lan?token=${encodeURIComponent(raw)}`);
+    const isLink = /^https?:\/\//i.test(raw);
+    const url = isLink ? raw : apiPath(`/api/sync/lan?token=${encodeURIComponent(raw)}`);
     const res = await fetch(url, { method: 'GET', cache: 'no-store' });
     const snapshot = await res.json().catch(() => null);
+    // 只填分享码时只能在本服务器上找；桌面端的分享在另一台机器上，必须用带地址的完整链接。
+    if (!isLink && res.status === 404) {
+        throw localizedError('没找到这个分享码。在电脑版创建的分享，请粘贴完整链接（以 http:// 开头）', 'Share code not found. For shares created in the desktop app, paste the full link (starting with http://).', 'Код доступа не найден. Для общего доступа из настольного приложения вставьте полную ссылку (начинается с http://).');
+    }
     if (!res.ok || snapshot?.error) throw new Error(localizeApiError(snapshot, tt) || tt('读取局域网同步数据失败', 'Failed to read LAN sync data.', 'Не удалось прочитать данные синхронизации по локальной сети.'));
     return await applySyncSnapshot(snapshot);
 }

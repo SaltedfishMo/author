@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     writeDiagnosticLog: (entry) => ipcRenderer.invoke('write-diagnostic-log', entry),
     getDiagnosticBundle: () => ipcRenderer.invoke('get-diagnostic-bundle'),
     openDiagnosticLogFile: () => ipcRenderer.invoke('open-diagnostic-log-file'),
+    // ---- 局域网分享：开启只认分享码的局域网网关，返回手机可用的链接 ----
+    openLanShareGateway: (share) => ipcRenderer.invoke('lan-share-gateway-open', share),
     // ---- 本机安全存储（WebDAV 应用密码等）----
     secureSet: (key, value) => ipcRenderer.invoke('secure-store-set', key, value),
     secureGet: (key) => ipcRenderer.invoke('secure-store-get', key),

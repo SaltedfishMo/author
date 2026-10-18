@@ -77,7 +77,7 @@ export async function proxyFetch(url, options = {}, proxyUrl, policy = {}) {
     if (!allowPrivateNetwork) {
         rejectOfficialProxy(proxyUrl);
         if (String(proxyUrl || '').trim()) {
-            throw new OutboundRequestBlockedError('未授权的请求不能使用自定义代理');
+            throw new OutboundRequestBlockedError('服务端默认不允许使用自定义 HTTP 代理；不需要代理请清空代理地址，自部署确实要用时，请设置环境变量 AUTHOR_ALLOW_PRIVATE_NETWORK=1 后重启');
         }
         return fetchPublicUrl(url, options);
     }

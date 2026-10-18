@@ -127,16 +127,31 @@ git status --short
 
 > **紧急修复（版本号不变）：** 仍需先推送修复提交并等待该提交的完整 CI 通过。调整已有标签会改写公开引用，必须明确说明旧、新提交及影响，并取得用户对这次标签调整的单独确认。不得默认强推或删除标签。
 
+## 公开文字审查
+
+12. **【必须】逐条阅读本次所有会公开的文字，确认内容只关乎技术和写作。** 范围包括：
+   - 上一版本标签以来的全部提交说明：`git log <上一版本标签>..HEAD --format=%B`
+   - 上一版本标签以来改动过的文字：`git diff <上一版本标签>..HEAD -- . ":(exclude)package-lock.json"` 里的文档、所有语言的 README、界面文案（语言文件、帮助页面、开局引导）、代码注释和测试描述
+   - `RELEASE_NOTES.md`、`RELEASE_TITLE.txt`
+   - 本次要发出的 PR 说明、issue 回复和群公告
+
+   不得出现：
+   - 用户不该看到的信息：个人隐私；服务器地址、部署方式、配置上限等内部细节；某位具体用户的反馈原话或诊断数据；未公开的产品、功能或后续计划
+   - 任何国家的政治话题、立场或评论
+   - 针对任何种族、民族或地域人群的偏见和刻板描述
+
+   这一步必须逐条阅读判断，不能用关键词搜索代替。发现问题先改掉：未推送的提交说明可以改写；已经公开的内容如实告诉用户，由用户决定怎么处理。**向用户汇报审查结论，用户确认后才可继续。**
+
 ## 更新版本号
 
 > 如果是不改版本号的紧急修复，跳过此步骤。
 
-12. 更新 `package.json` 中的版本号（替换 `X.Y.Z` 为目标版本）：
+13. 更新 `package.json` 中的版本号（替换 `X.Y.Z` 为目标版本）：
 ```bash
 npm version X.Y.Z --no-git-tag-version
 ```
 
-13. **【必须】同步更新移动端版本号**（`mobile/pubspec.yaml`）：
+14. **【必须】同步更新移动端版本号**（`mobile/pubspec.yaml`）：
     - 版本格式：`X.Y.Z+VCODE`，其中 `VCODE = major × 1000 + minor × 100 + patch`
     - 例如：`1.2.28` → `1.2.28+1228`，`1.3.0` → `1.3.0+1300`，`2.0.0` → `2.0.0+2000`
     - versionCode 必须严格递增，Android 系统依赖此数字判断新旧版本
@@ -144,13 +159,13 @@ npm version X.Y.Z --no-git-tag-version
 
 ## 提交与推送
 
-14. 暂存并提交所有改动（包括文案与版本号）：
+15. 暂存并提交所有改动（包括文案与版本号）：
 ```bash
 git add -A
 git commit -m "vX.Y.Z: 简要描述本次更新内容"
 ```
 
-15. 先推送代码，等待该提交的完整 CI 通过：
+16. 先推送代码，等待该提交的完整 CI 通过：
 ```bash
 git push origin main
 git rev-parse HEAD
@@ -160,14 +175,14 @@ gh run watch <对应的CI运行ID> --exit-status
 
 必须核对 CI 的提交 SHA 与待发版 HEAD 相同；不能用更早提交的绿色检查作为依据。CI 失败时先修复，禁止提前触发安装包或镜像构建。
 
-16. CI 通过后创建并推送新版本标签：
+17. CI 通过后创建并推送新版本标签：
 ```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 已有标签按上面的单独确认规则处理。只重试已有提交的暂时性下载或网络失败时，使用失败运行的重试功能，不重新推送代码或重复创建构建。
 
-17. **提交并推送移动端仓库**（确保 CI 能拿到新的 versionCode）：
+18. **提交并推送移动端仓库**（确保 CI 能拿到新的 versionCode）：
 ```bash
 cd mobile
 git add -A
@@ -187,7 +202,7 @@ cd ..
 
 构建进度：https://github.com/YuanShiJiLoong/author/actions
 
-18. **桌面端 Release 创建成功后**，触发移动端 CI 构建 APK 并上传到同一 Release：
+19. **桌面端 Release 创建成功后**，触发移动端 CI 构建 APK 并上传到同一 Release：
 ```bash
 cd mobile
 gh workflow run "Android APK to Author 1.2 Public Release" -f release_tag=vX.Y.Z -F publish_release=true
@@ -199,17 +214,17 @@ cd ..
 
 ## 构建完成后
 
-19. 去 [Releases 页面](https://github.com/YuanShiJiLoong/author/releases) 确认：
+20. 去 [Releases 页面](https://github.com/YuanShiJiLoong/author/releases) 确认：
     - 桌面端安装包文件名版本号正确（如 `author-setup-X.Y.Z.exe`）
     - 移动端 APK 已上传（`author-mobile-vX.Y.Z.apk` + `author-mobile-latest.apk`）
     - Release Notes 格式正确（双语）
     - 所有下载链接可用
 
-20. （可选）下载 `.exe` 发到 QQ 群，或直接分享 Release 链接
+21. （可选）下载 `.exe` 发到 QQ 群，或直接分享 Release 链接
 
 ## 本地打包（归档 / 离线分发）
 
-21. **【发版流程最后一步】** CI 产物确认无误后，在本地额外打包一份与线上**同版本**的两端安装包，用于离线分发或归档。两端产物均被 `.gitignore` 忽略，不会进仓库：
+22. **【发版流程最后一步】** CI 产物确认无误后，在本地额外打包一份与线上**同版本**的两端安装包，用于离线分发或归档。两端产物均被 `.gitignore` 忽略，不会进仓库：
 
 ```powershell
 # 桌面端 Electron（清理 dist/.next → next build → electron-builder --win）

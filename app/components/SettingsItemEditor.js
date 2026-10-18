@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getBuiltInNodeLabel, getSettingsIconOptions } from '../lib/built-in-labels';
 import { useI18n } from '../lib/useI18n';
+import { copyTextToClipboard } from '../lib/clipboard';
 import MiniMarkdownEditor from './MiniMarkdownEditor';
 import RadarStatsChart from './RadarStatsChart';
 
@@ -812,7 +813,8 @@ function Breadcrumb({ node, allNodes, onSelect }) {
 
     const handleCopyId = (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(node.id).then(() => {
+        copyTextToClipboard(node.id).then((copied) => {
+            if (!copied) return;
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
         });

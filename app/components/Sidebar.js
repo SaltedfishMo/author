@@ -25,6 +25,7 @@ import { localizeApiError } from '../lib/api-error-i18n';
 import { tt } from '../lib/runtime-i18n';
 import { buildChapterSynopsisPrompts, buildMergedSynopsisPrompts, buildMultiChapterSynopsisPrompts } from '../lib/synopsis-prompts';
 import { prepareChapterForAi, prepareChaptersForAi } from '../lib/ai-reference-content';
+import { copyTextToClipboard } from '../lib/clipboard';
 
 /** 更多操作下拉菜单（Portal 渲染到 body，彻底避免 overflow 裁剪） */
 function MoreMenuPortal({ anchorRef, t, setShowSettings, setShowMoreMenu, onOpenHelp, setShowGitPopup }) {
@@ -224,9 +225,15 @@ function buildMemoryMergePrompts({ name, groups, chapters }) {
     return buildMergedSynopsisPrompts({ name, content });
 }
 
-function formatMemoryTokens(value) {
+function formatMemoryTokens(value, text = (zh) => zh) {
     const tokens = Number(value) || 0;
-    if (tokens >= 10000) return `${(tokens / 10000).toFixed(1)}万 tokens`;
+    if (tokens >= 10000) {
+        return text(
+            `${(tokens / 10000).toFixed(1)}万 tokens`,
+            `${(tokens / 1000).toFixed(1)}k tokens`,
+            `${(tokens / 1000).toFixed(1)} тыс. tokens`,
+        );
+    }
     return `${tokens.toLocaleString()} tokens`;
 }
 
@@ -1330,7 +1337,7 @@ function ChapterSynopsisOverviewModal({
                                         <span className="synopsis-row-badge saved">{text('概要组', 'Synopsis Group', 'Группа синопсиса')}</span>
                                         {groupSelectedIds.size > 0 && <span className="synopsis-row-badge locked">{text(`已选 ${groupSelectedIds.size}`, `${groupSelectedIds.size} selected`, `Выбрано: ${groupSelectedIds.size}`)}</span>}
                                         <h3>{groupDraft.name || selectedGroup.name || text('未命名概要组', 'Untitled Synopsis Group', 'Безымянная группа синопсиса')}</h3>
-                                        <p>{text(`${groupDraft.chapterIds?.length || 0} 章`, `${groupDraft.chapterIds?.length || 0} chapters`, `${groupDraft.chapterIds?.length || 0} гл.`)} · {formatMemoryTokens(estimateTokens(buildChapterMemoryGroupText(groupDraft, chapters)))}</p>
+                                        <p>{text(`${groupDraft.chapterIds?.length || 0} 章`, `${groupDraft.chapterIds?.length || 0} chapters`, `${groupDraft.chapterIds?.length || 0} гл.`)} · {formatMemoryTokens(estimateTokens(buildChapterMemoryGroupText(groupDraft, chapters)), text)}</p>
                                     </div>
                                     <input
                                         className="memory-group-name-input"
@@ -1411,7 +1418,7 @@ function ChapterSynopsisOverviewModal({
                                         </span>
                                         {singleLocked && <span className="synopsis-row-badge locked">{text('锁定', 'Locked', 'Заблокировано')}</span>}
                                         <h3>{selectedEntry.chapter.title || text('未命名章节', 'Untitled Chapter', 'Безымянная глава')}</h3>
-                                        <p>{text(`第 ${selectedEntry.ordinal} 章`, `Chapter ${selectedEntry.ordinal}`, `Глава ${selectedEntry.ordinal}`)} · {formatMemoryTokens(selectedEntry.textTokens)}</p>
+                                        <p>{text(`第 ${selectedEntry.ordinal} 章`, `Chapter ${selectedEntry.ordinal}`, `Глава ${selectedEntry.ordinal}`)} · {formatMemoryTokens(selectedEntry.textTokens, text)}</p>
                                     </div>
                                     <label className="synopsis-lock-row">
                                         <input
@@ -1477,7 +1484,7 @@ function ChapterSynopsisOverviewModal({
                                         </span>
                                         {selectedEntry.synopsis.locked && <span className="synopsis-row-badge locked">{text('锁定', 'Locked', 'Заблокировано')}</span>}
                                         <h3>{selectedEntry.chapter.title || text('未命名章节', 'Untitled Chapter', 'Безымянная глава')}</h3>
-                                        <p>{text(`第 ${selectedEntry.ordinal} 章`, `Chapter ${selectedEntry.ordinal}`, `Глава ${selectedEntry.ordinal}`)} · {formatMemoryTokens(selectedEntry.textTokens)}</p>
+                                        <p>{text(`第 ${selectedEntry.ordinal} 章`, `Chapter ${selectedEntry.ordinal}`, `Глава ${selectedEntry.ordinal}`)} · {formatMemoryTokens(selectedEntry.textTokens, text)}</p>
                                     </div>
 
                                     <div className="synopsis-inspector-block">
@@ -1507,7 +1514,7 @@ function ChapterSynopsisOverviewModal({
                                     <div className="synopsis-inspector-meta">
                                         <span>{getSynopsisSourceLabel(selectedEntry.synopsis, text)}</span>
                                         <span>{formatSynopsisTime(selectedEntry.synopsis.updatedAt || selectedEntry.synopsis.generatedAt, text, language)}</span>
-                                        <span>{formatMemoryTokens(estimateTokens(selectedEntry.synopsisText || selectedEntry.synopsis.summary || ''))}</span>
+                                        <span>{formatMemoryTokens(estimateTokens(selectedEntry.synopsisText || selectedEntry.synopsis.summary || ''), text)}</span>
                                     </div>
                                     <div className="synopsis-inspector-actions">
                                         <button className="btn btn-secondary btn-sm" onClick={() => setActiveView('single')}>
@@ -1801,11 +1808,12 @@ export default function Sidebar({ onOpenHelp, onToggle, editorRef, pushMode }) {
         const fallback = baseTitle || t('sidebar.defaultChapterTitle').replace('{num}', chapters.length + 1);
         const existing = new Set(chapters.map(ch => ch.title).filter(Boolean));
         if (!existing.has(fallback)) return fallback;
-        const first = `${fallback}（新）`;
+        const first = `${fallback}${t('sidebar.duplicateTitleSuffix')}`;
         if (!existing.has(first)) return first;
+        const numbered = (n) => `${fallback}${t('sidebar.duplicateTitleSuffixNumbered', { n })}`;
         let index = 2;
-        while (existing.has(`${fallback}（新${index}）`)) index++;
-        return `${fallback}（新${index}）`;
+        while (existing.has(numbered(index))) index++;
+        return numbered(index);
     }, [chapters, t]);
 
     const getNextChapterTitle = useCallback((volumeId) => {
@@ -2109,10 +2117,9 @@ export default function Sidebar({ onOpenHelp, onToggle, editorRef, pushMode }) {
             showToast(text('还没有可导出的章节概要', 'No chapter synopses to export yet', 'Пока нет синопсисов глав для экспорта'), 'info');
             return;
         }
-        try {
-            await navigator.clipboard.writeText(synopsisText);
+        if (await copyTextToClipboard(synopsisText)) {
             showToast(text('所有已保存概要已复制', 'All saved synopses copied', 'Все сохраненные синопсисы скопированы'), 'success');
-        } catch {
+        } else {
             showToast(text('复制失败，请检查浏览器剪贴板权限', 'Copy failed. Check browser clipboard permission.', 'Не удалось скопировать. Проверьте разрешение буфера обмена.'), 'error');
         }
     }, [chapters, showToast, text]);
@@ -2923,7 +2930,7 @@ export default function Sidebar({ onOpenHelp, onToggle, editorRef, pushMode }) {
                                                     <span className="gdocs-tab-title" style={{ fontWeight: 600 }}>{ch.title}</span>
                                                     {volWords > 0 && (
                                                         <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                                                            {volWords.toLocaleString()}字
+                                                            {volWords.toLocaleString()}{t('sidebar.wordUnit')}
                                                         </span>
                                                     )}
                                                 </span>
@@ -3061,7 +3068,7 @@ export default function Sidebar({ onOpenHelp, onToggle, editorRef, pushMode }) {
                                                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.text}</span>
                                                 {headingStats[idx] && headingStats[idx].words > 0 && (
                                                     <span className="gdocs-outline-stats">
-                                                        {headingStats[idx].words.toLocaleString()}字
+                                                        {headingStats[idx].words.toLocaleString()}{t('sidebar.wordUnit')}
                                                     </span>
                                                 )}
                                             </div>
@@ -3114,7 +3121,7 @@ export default function Sidebar({ onOpenHelp, onToggle, editorRef, pushMode }) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.003 2C6.477 2 2 6.477 2 12.003c0 2.39.84 4.584 2.236 6.31l-.924 3.468 3.592-.96A9.95 9.95 0 0 0 12.003 22C17.52 22 22 17.523 22 12.003S17.52 2 12.003 2zm4.97 13.205c-.234.657-1.378 1.257-1.902 1.313-.525.06-1.003.234-3.38-.703-2.86-1.13-4.68-4.07-4.82-4.26-.14-.19-1.15-1.53-1.15-2.92s.728-2.072.986-2.354c.258-.282.563-.352.75-.352s.375.004.54.01c.173.006.405-.066.633.483.234.563.797 1.947.867 2.088.07.14.117.305.023.492-.094.188-.14.305-.28.468-.14.164-.296.366-.422.492-.14.14-.286.292-.123.571.164.28.727 1.2 1.562 1.944 1.073.955 1.977 1.252 2.258 1.393.28.14.445.117.608-.07.164-.188.703-.82.89-1.102.188-.28.375-.234.633-.14.258.093 1.632.77 1.912.91.28.14.468.21.538.328.07.117.07.68-.164 1.336z" /></svg>
                                 <span style={{ flex: 1, fontSize: 14 }}>{text('QQ群：1080766359', 'QQ Group: 1080766359', 'QQ-группа: 1080766359')}</span>
-                                <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => { navigator.clipboard?.writeText('1080766359'); showToast(text('群号已复制', 'Group ID copied', 'Номер группы скопирован'), 'success'); }}>{text('复制群号', 'Copy ID', 'Копировать ID')}</button>
+                                <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 11 }} onClick={async () => { if (await copyTextToClipboard('1080766359')) showToast(text('群号已复制', 'Group ID copied', 'Номер группы скопирован'), 'success'); }}>{text('复制群号', 'Copy ID', 'Копировать ID')}</button>
                                 <a href="https://qm.qq.com/q/kSZyifQ1Ne" target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm" style={{ padding: '4px 8px', fontSize: 11, textDecoration: 'none' }} onClick={() => setShowGitPopup(false)}>{text('直达', 'Open', 'Открыть')}</a>
                             </div>
                         </div>
@@ -3655,8 +3662,8 @@ function ExportModal({ chapters, onClose, onExport, t }) {
         { value: 'pdf', label: 'PDF' },
     ];
     const variants = [
-        { value: 'body', label: '正文', hint: '不带批注、备注' },
-        { value: 'annotated', label: '批注版', hint: '正文中展开备注' },
+        { value: 'body', label: t('sidebar.exportVariantBody'), hint: t('sidebar.exportVariantBodyHint') },
+        { value: 'annotated', label: t('sidebar.exportVariantAnnotated'), hint: t('sidebar.exportVariantAnnotatedHint') },
     ];
 
     // 导航到上/下一章预览
@@ -3929,7 +3936,7 @@ function ExportModal({ chapters, onClose, onExport, t }) {
                                             onChange={() => toggleGroup(group)}
                                             style={{ accentColor: 'var(--accent)', width: 15, height: 15 }}
                                         />
-                                        {t('sidebar.exportGroup') || '第'} {startIdx}–{endIdx} {t('sidebar.exportGroupSuffix') || '章'}
+                                        {t('sidebar.exportGroup')} {startIdx}–{endIdx} {t('sidebar.exportGroupSuffix')}
                                     </label>
                                     {/* 组内章节 */}
                                     {group.map(ch => {
@@ -4005,7 +4012,7 @@ function ExportModal({ chapters, onClose, onExport, t }) {
                         display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 10,
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>内容</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>{t('sidebar.exportContentLabel')}</span>
                             {variants.map(v => (
                                 <button
                                     key={v.value}
@@ -4060,7 +4067,7 @@ function ExportModal({ chapters, onClose, onExport, t }) {
                                     borderRadius: 10, opacity: selected.size === 0 ? 0.5 : 1,
                                 }}
                             >
-                                {variant === 'annotated' ? '导出批注版' : (t('sidebar.exportBtn') || '导出')} ({selected.size})
+                                {variant === 'annotated' ? t('sidebar.exportAnnotatedBtn') : t('sidebar.exportBtn')} ({selected.size})
                             </button>
                         </div>
                     </div>
@@ -4106,7 +4113,7 @@ function ExportModal({ chapters, onClose, onExport, t }) {
                                             {' · '}
                                             {t('sidebar.previewLabel') || '预览'}
                                             {' · '}
-                                            {variant === 'annotated' ? '批注版' : '正文'}
+                                            {variant === 'annotated' ? t('sidebar.exportVariantAnnotated') : t('sidebar.exportVariantBody')}
                                         </div>
                                     </div>
                                     <button
@@ -4129,11 +4136,11 @@ function ExportModal({ chapters, onClose, onExport, t }) {
                                         <Book size={14} style={{ flexShrink: 0, marginRight: 4 }} />{t('sidebar.previewAll') || '全书预览'}
                                     </div>
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                        {chapters.length} {t('sidebar.exportGroupSuffix') || '章'}
+                                        {t('sidebar.previewChapterCount', { count: chapters.length })}
                                         {' · '}
                                         {totalWords.toLocaleString()}{t('sidebar.wordUnit') || '字'}
                                         {' · '}
-                                        {variant === 'annotated' ? '批注版' : '正文'}
+                                        {variant === 'annotated' ? t('sidebar.exportVariantAnnotated') : t('sidebar.exportVariantBody')}
                                     </div>
                                 </div>
                             )}

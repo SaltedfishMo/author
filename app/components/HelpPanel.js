@@ -130,6 +130,16 @@ AI 会自动参考：
 - 使用 < 1/3 > 导航切换不同变体
 - **全屏沉浸输入**：点击输入框右下角的放大图标，即可切入全屏写作面板，轻松撰写超长 Prompt。
 - **发送快捷键**：在「设定集 → 偏好设置 → AI 对话发送快捷键」可选择 Enter 发送，或 Ctrl/⌘ + Enter 发送；设置会同时作用于小输入框和全屏输入面板。
+
+#### 联网搜索
+让 AI 先上网查资料再回答，回复下方会列出参考来源。在「API 配置 → 联网搜索」中勾选「启用联网搜索」即可开启。
+- **服务商自带搜索**：Gemini（原生格式）自带 Google 搜索；OpenAI 兼容服务商可以选「内置搜索」（需要接口本身支持）。
+- **外部搜索**：其他服务商需要选一个搜索工具：
+  - **DeepSeek**：如果已经配置了 DeepSeek，选它会自动填好 Key 和地址，不用另外申请。2026 年 11 月 1 日起按次收费，每 1000 次成功请求 0.75 美元。
+  - **Tavily / Exa**：在官网注册后获取 API Key 填入，都有免费额度。
+- **读取网页**（搜索工具选 DeepSeek 时）：开启「允许 AI 读取网页全文」后，在对话里贴出链接，AI 会先读网页正文再回答。每次回答最多读 3 个网页，每读一个算一次收费。
+- **搜索后再挑网页读全文**（默认关闭）：AI 看完搜索结果后，再挑几个网页读全文。回答更详细，但要多等几秒。
+- 如果 Key 不对、余额不足或请求太频繁，回复里会有提示，AI 仍会照常回答，只是可能缺少最新资料。
     `,
     },
     {
@@ -800,6 +810,16 @@ AI can generate **setting action cards** in chat. You can apply them with one cl
 - Use **< 1/3 >** navigation to switch between variants.
 - **Immersive fullscreen input**: click the expand icon in the lower-right of the input box to write long prompts comfortably.
 - **Send shortcut**: in **Lore -> Preferences -> AI chat send shortcut**, choose Enter to send or Ctrl/⌘+Enter to send. The setting applies to both compact and fullscreen input.
+
+#### Web Search
+Let the AI look things up online before answering; the sources are listed under the reply. Turn it on in **API Config -> Web Search -> Enable Web Search**.
+- **Provider search**: Gemini (native format) has built-in Google Search. OpenAI-compatible providers can use **Built-in** search if the endpoint supports it.
+- **External search**: other providers need a search tool:
+  - **DeepSeek**: if DeepSeek is already set up, choosing it fills in the Key and URL automatically, with no extra sign-up. Billed per request from Nov 1, 2026: $0.75 per 1,000 successful requests.
+  - **Tavily / Exa**: sign up on their sites and paste the API Key. Both have a free tier.
+- **Read web pages** (with DeepSeek as the search tool): turn on **Let AI read full web pages**, then paste a link in the chat and the AI reads the page before answering. Up to 3 pages per answer; each page counts as one billed request.
+- **Read pages picked from search results** (off by default): after reading the search results, the AI picks a few pages to read in full. More detailed, but a few seconds slower.
+- If the Key is wrong, the balance is too low, or requests are too frequent, the reply shows a notice. The AI still answers, but may lack the latest information.
         `,
     },
     {
@@ -1468,6 +1488,16 @@ Author — **платформа письма с ИИ** для авторов п�
 - Навигация **< 1/3 >** переключает варианты.
 - Полноэкранный ввод удобен для длинных prompt.
 - Горячую клавишу отправки можно выбрать в **Лор -> Предпочтения**.
+
+#### Веб-поиск
+ИИ сначала ищет информацию в интернете, а затем отвечает; источники показываются под ответом. Включается в **API-конфигурация -> Веб-поиск -> Включить веб-поиск**.
+- **Поиск провайдера**: в Gemini (нативный формат) есть встроенный Google Search. OpenAI-совместимые провайдеры могут использовать **Встроенный** поиск, если его поддерживает endpoint.
+- **Внешний поиск**: другим провайдерам нужен инструмент поиска:
+  - **DeepSeek**: если DeepSeek уже настроен, при выборе ключ и адрес подставятся автоматически, отдельная регистрация не нужна. С 1 ноября 2026 г. оплата за запрос: 0,75 $ за 1000 успешных запросов.
+  - **Tavily / Exa**: зарегистрируйтесь на их сайтах и вставьте API-ключ. У обоих есть бесплатный лимит.
+- **Чтение страниц** (если инструмент поиска — DeepSeek): включите **Разрешить ИИ читать веб-страницы целиком**, затем вставьте ссылку в чат, и ИИ прочитает страницу перед ответом. Не более 3 страниц на ответ; каждая страница оплачивается как один запрос.
+- **Читать страницы из результатов поиска** (по умолчанию выключено): изучив результаты поиска, ИИ выбирает несколько страниц и читает их целиком. Ответ подробнее, но на несколько секунд медленнее.
+- Если ключ неверный, баланса не хватает или запросов слишком много, в ответе появится уведомление. ИИ всё равно ответит, но может не учесть свежие данные.
         `,
     },
     {
@@ -1952,8 +1982,10 @@ export default function HelpPanel({ open, onClose }) {
                     if (data.done) {
                         if (data.success) {
                             if (data.needRestart) {
-                                const ver = data.diskVersion ? ` v${data.diskVersion}` : '';
-                                setUpdateDone({ success: true, message: text(`代码已更新到${ver}，请重启服务生效`, `Code updated to${ver}. Restart the service to apply it.`, `Код обновлен до${ver}. Перезапустите сервис, чтобы применить изменения.`), needRestart: true });
+                                const message = data.diskVersion
+                                    ? t('update.codeUpdatedRestartVersion', { version: data.diskVersion })
+                                    : t('update.codeUpdatedRestart');
+                                setUpdateDone({ success: true, message, needRestart: true });
                             } else if (data.alreadyUpToDate) {
                                 setUpdateDone({ success: true, message: t('update.alreadyLatest') });
                             } else {
@@ -2314,10 +2346,10 @@ export default function HelpPanel({ open, onClose }) {
                                         textAlign: 'left', lineHeight: 1.7,
                                         marginBottom: 8, width: '100%',
                                     }}>
-                                        <div style={{ fontWeight: 700, marginBottom: 6, color: '#fbbf24' }}>📋 重启步骤：</div>
-                                        <div>1. 停止当前运行的服务（Ctrl+C）</div>
-                                        <div>2. 运行 <code style={{ background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: 4 }}>npm start</code> 或 <code style={{ background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: 4 }}>npm run dev</code></div>
-                                        <div>3. 刷新浏览器页面</div>
+                                        <div style={{ fontWeight: 700, marginBottom: 6, color: '#fbbf24' }}>📋 {text('重启步骤：', 'Restart steps:', 'Шаги перезапуска:')}</div>
+                                        <div>1. {text('停止当前运行的服务（Ctrl+C）', 'Stop the running service (Ctrl+C)', 'Остановите запущенный сервис (Ctrl+C)')}</div>
+                                        <div>2. {text('运行', 'Run', 'Выполните')} <code style={{ background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: 4 }}>npm start</code> {text('或', 'or', 'или')} <code style={{ background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: 4 }}>npm run dev</code></div>
+                                        <div>3. {text('刷新浏览器页面', 'Refresh the browser page', 'Обновите страницу в браузере')}</div>
                                     </div>
                                 ) : (
                                     <button

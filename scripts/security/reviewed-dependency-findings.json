@@ -54,88 +54,88 @@
     },
     {
       "file": "node_modules/next/dist/compiled/next-server/app-page-experimental.runtime.dev.js",
-      "sha256": "9646e73fe8721c6c77b10991989b4303230a208b7088c3edf38bb7792d3a4b32",
+      "sha256": "4bbbbe521a3009506f946a2c7d8c38d15c640c8db53ac6fc79d8251f18d1178f",
       "findings": [
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 28174,
-          "endColumn": 28210,
+          "column": 28346,
+          "endColumn": 28382,
           "reason": "javascript-variable-assignment"
         },
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 774,
-          "endColumn": 828,
+          "column": 946,
+          "endColumn": 1000,
           "reason": "javascript-variable-assignment"
         }
       ]
     },
     {
       "file": "node_modules/next/dist/compiled/next-server/app-page-turbo-experimental.runtime.dev.js",
-      "sha256": "7dd81869ccdeb9ec0104f47f967ebf89873af6c148044bbfe8083b965c324227",
+      "sha256": "c491d749081079e5aa5d81a884a0b3038c2f1d9bd024b56fc1a20c280d6c5f27",
       "findings": [
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 28071,
-          "endColumn": 28107,
+          "column": 28243,
+          "endColumn": 28279,
           "reason": "javascript-variable-assignment"
         },
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 671,
-          "endColumn": 725,
+          "column": 843,
+          "endColumn": 897,
           "reason": "javascript-variable-assignment"
         }
       ]
     },
     {
       "file": "node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js",
-      "sha256": "ff667f0669ea54e35deaad2627597cf2463ed2da0b5a1cebc19e37f6d730f04b",
+      "sha256": "a7fab4da4d388d820fc90c0cb6c4d3c48ecaeab112221c6f0509a2c76abaa99f",
       "findings": [
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 14652,
-          "endColumn": 14688,
+          "column": 14824,
+          "endColumn": 14860,
           "reason": "javascript-variable-assignment"
         },
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 15924,
-          "endColumn": 15978,
+          "column": 16096,
+          "endColumn": 16150,
           "reason": "javascript-variable-assignment"
         }
       ]
     },
     {
       "file": "node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js",
-      "sha256": "9e0cd2f6fc6aed36518f50cb100c042ddb7e281b3333ac859cd1ee2199768921",
+      "sha256": "1f49ee04e4b57d5ddedbf6ac31d6d7d5291870a402d9c73163b854e30a866a95",
       "findings": [
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 14755,
-          "endColumn": 14791,
+          "column": 14927,
+          "endColumn": 14963,
           "reason": "javascript-variable-assignment"
         },
         {
           "rule": "generic-api-key",
           "line": 50,
           "endLine": 50,
-          "column": 16027,
-          "endColumn": 16081,
+          "column": 16199,
+          "endColumn": 16253,
           "reason": "javascript-variable-assignment"
         }
       ]
@@ -164,7 +164,7 @@
     },
     {
       "file": "node_modules/next/dist/docs/01-app/02-guides/environment-variables.md",
-      "sha256": "bf33d9fa113f800d5fa40cd638b25b20db52e53772eb09d205386e2ad4cab9aa",
+      "sha256": "089542c335bc9da8799e86a1696a3941a3b46d0cbedc01ebd234c3a1a2c587c2",
       "findings": [
         {
           "rule": "private-key",

@@ -7,8 +7,8 @@ import { OutboundRequestBlockedError } from '../app/lib/server-security.mjs';
 const routeUrl = new URL('../app/api/sync/webdav/route.js', import.meta.url);
 let instance = 0;
 
-// 官网与桌面端走 proxyFetch 的不同分支，失败原因必须能从返回里区分出来，
-// 否则"桌面能同步、官网不能"只剩一句无法排查的 "WebDAV 请求失败"。
+// 桌面端和网页部署走 proxyFetch 的不同分支，失败原因必须能从返回里区分出来，
+// 否则某一端同步失败时只剩一句无法排查的 "WebDAV 请求失败"。
 async function fixture(t) {
     const id = ++instance;
     const env = { respond: null };

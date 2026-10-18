@@ -1,5 +1,5 @@
 import { withApiResources } from '../../../lib/api-resource-guard.js';
-// 统一搜索 API — 支持 Google Custom Search / Bing Search / Tavily
+// 统一搜索 API — 支持 Tavily / Exa / DeepSeek
 // 供 Function Calling 搜索循环调用
 
 export const runtime = 'nodejs';
@@ -8,6 +8,7 @@ import { rotateKey } from '../../../lib/keyRotator';
 import { proxyFetch } from '../../../lib/proxy-fetch';
 import { isOutboundRequestBlocked } from '../../../lib/server-security.mjs';
 import { createGenerationLifecycle, generationAbortResponse } from '../../../lib/ai-request-lifecycle.js';
+import { isSearchProviderError, runDeepSeekSearch, searchErrorHttpStatus } from '../../../lib/web-search.js';
 
 async function handlePOST(request) {
     const lifecycle = createGenerationLifecycle(request.signal);
@@ -81,6 +82,21 @@ async function handlePOST(request) {
                     url: item.url || '',
                     snippet: (item.highlights || []).join(' ') || item.text || '',
                 }));
+                break;
+            }
+
+            case 'deepseek': {
+                // 地址由客户端传入，这里不内置 DeepSeek 默认地址
+                try {
+                    results = await runDeepSeekSearch({
+                        query, apiKey: searchConfig.apiKey, baseUrl: searchConfig.baseUrl, signal,
+                        fetchImpl: proxyFetch,
+                    });
+                } catch (error) {
+                    if (!isSearchProviderError(error)) throw error;
+                    console.error('DeepSeek Search error:', error.status || error.code);
+                    return Response.json({ error: error.message, code: error.code }, { status: searchErrorHttpStatus(error) });
+                }
                 break;
             }
 

@@ -3,14 +3,10 @@ import { NextResponse } from 'next/server';
 import { proxyFetch } from '../../../lib/proxy-fetch';
 import { rotateKey } from '../../../lib/keyRotator';
 import { isOutboundRequestBlocked, safeUpstreamDetail } from '../../../lib/server-security.mjs';
+import { buildClaudeRequestParams, DEEPSEEK_DEFAULT_MODEL, isDeepSeekRequest, usesMaxCompletionTokens } from '../../../lib/ai-model-rules.js';
 
-const DEEPSEEK_V4_MODELS = new Set(['deepseek-v4-pro', 'deepseek-v4-flash']);
-
-function isDeepSeekProvider(provider, baseUrl, model) {
-    return provider === 'deepseek'
-        || (baseUrl || '').includes('api.deepseek.com')
-        || DEEPSEEK_V4_MODELS.has((model || '').trim().toLowerCase());
-}
+const OPENAI_DEFAULT_TEST_MODEL = 'gpt-6-luna';
+const CLAUDE_DEFAULT_TEST_MODEL = 'claude-opus-5-5';
 
 async function handlePOST(request) {
     try {
@@ -45,9 +41,9 @@ async function handlePOST(request) {
 }
 
 async function testOpenAICompatible(apiKey, baseUrl, model, proxyUrl, provider) {
-    const isDeepSeek = isDeepSeekProvider(provider, baseUrl, model);
+    const isDeepSeek = isDeepSeekRequest({ provider }, baseUrl, model);
     const base = String(baseUrl || '').replace(/\/+$/, '');
-    const selectedModel = model || (isDeepSeek ? 'deepseek-v4-pro' : 'gpt-4o-mini');
+    const selectedModel = model || (isDeepSeek ? DEEPSEEK_DEFAULT_MODEL : OPENAI_DEFAULT_TEST_MODEL);
 
     const response = await proxyFetch(`${base}/chat/completions`, {
         method: 'POST',
@@ -58,7 +54,7 @@ async function testOpenAICompatible(apiKey, baseUrl, model, proxyUrl, provider) 
         body: JSON.stringify({
             model: selectedModel,
             messages: [{ role: 'user', content: '说"连接成功"' }],
-            max_tokens: 20,
+            [usesMaxCompletionTokens(selectedModel) ? 'max_completion_tokens' : 'max_tokens']: 20,
         }),
     }, proxyUrl);
 
@@ -74,7 +70,7 @@ async function testOpenAICompatible(apiKey, baseUrl, model, proxyUrl, provider) 
 
 async function testClaudeCompatible(apiKey, baseUrl, model, proxyUrl) {
     const base = String(baseUrl || '').replace(/\/+$/, '');
-    const selectedModel = model || 'claude-sonnet-4-20250514';
+    const selectedModel = model || CLAUDE_DEFAULT_TEST_MODEL;
     const endpoint = base.endsWith('/v1') ? base + '/messages' : base + '/v1/messages';
     const response = await proxyFetch(endpoint, {
         method: 'POST',
@@ -85,7 +81,8 @@ async function testClaudeCompatible(apiKey, baseUrl, model, proxyUrl) {
         },
         body: JSON.stringify({
             model: selectedModel,
-            max_tokens: 20,
+            // 尽量少思考：思考无法关闭的新模型会降到最低档
+            ...buildClaudeRequestParams({ model: selectedModel, maxTokens: 64, reasoningEffort: 'none' }),
             messages: [{ role: 'user', content: '说"连接成功"' }],
         }),
     }, proxyUrl);
@@ -96,7 +93,8 @@ async function testClaudeCompatible(apiKey, baseUrl, model, proxyUrl) {
         success: true,
         message: '✅ Claude 兼容接口连接成功！',
         model: selectedModel,
-        reply: String(data.content?.[0]?.text || '').trim(),
+        // 新模型的回复前面可能有 thinking 块，取第一个文本块
+        reply: String((data.content || []).find(block => block?.type === 'text')?.text || '').trim(),
     });
 }
 

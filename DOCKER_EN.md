@@ -88,7 +88,7 @@ cp .env.example .env
 # Example for OpenAI:
 #   API_KEY=your-key-here
 #   API_BASE_URL=https://api.openai.com/v1
-#   API_MODEL=gpt-4o
+#   API_MODEL=gpt-6-luna
 
 # Restart to apply
 docker compose restart
@@ -149,6 +149,18 @@ A: Yes. After deploying to a server, access `http://server-ip:3000` from any dev
 A: The Docker build blocks loopback and LAN addresses by default. For a deployment only you or people you trust use, add `AUTHOR_ALLOW_PRIVATE_NETWORK=1` to `.env` and run `docker compose up -d`.
 
 Two more things matter: inside the container, `localhost` points at the container itself, so use the LAN IP of the machine running the model; and the model server must be set to accept other devices. For full steps, every deployment layout, running the model on the NAS, and common errors, see the [Local Model Guide](LOCAL_MODELS_EN.md).
+
+### Q: Setting an HTTP proxy fails with "服务端默认不允许使用自定义 HTTP 代理" (custom HTTP proxies not allowed). Older versions say "未授权的请求不能使用自定义代理".
+A: The Docker build does not accept a proxy address in API settings by default. The request is rejected right away; your API key is not the problem.
+
+First check whether you need a proxy at all: if everything works without one, just clear the proxy address.
+
+If you do need one and only you or people you trust use this deployment, add `AUTHOR_ALLOW_PRIVATE_NETWORK=1` to `.env` and run `docker compose up -d` (`docker compose restart` alone does not pick up the new setting). For docker run, NAS web UIs and other setups, see the [Local Model Guide](LOCAL_MODELS_EN.md#step-1-allow-lan-access-docker--source-deployments). This switch also lets the server reach your LAN, so do not enable it on an instance reachable from the internet.
+
+How to fill in the proxy address:
+
+- Requests are sent from the server running Author, so the proxy must be reachable from that server, not from the computer where you open the page.
+- Inside the container, `127.0.0.1` points at the container itself. If the proxy runs on the host, use the host's LAN IP, e.g. `http://192.168.1.10:7890`, and turn on "Allow LAN" in the proxy app. On Docker Desktop (Windows / Mac) you can also use `http://host.docker.internal:7890`.
 
 ### Q: Does it support HTTPS?
 A: Author does not include built-in HTTPS. Use a reverse proxy (Nginx, Caddy, or Traefik) in front to handle SSL certificates.

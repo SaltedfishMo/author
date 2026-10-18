@@ -482,7 +482,7 @@ const DEFAULT_SETTINGS = {
         provider: 'zhipu',   // 预设供应商标识
         apiKey: '',
         baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-        model: 'glm-4-flash',
+        model: 'glm-4.7-flash',
         // 每个供应商独立保存的配置 { [key]: { apiKey, baseUrl, model, apiFormat? } }
         providerConfigs: {},
         useCustomEmbed: false, // 是否使用独立的 Embedding API
@@ -498,7 +498,7 @@ const DEFAULT_SETTINGS = {
         topP: 0.95,                 // 0 ~ 1
         maxContextLength: 200000,   // 最大上下文 token
         maxOutputTokens: 65536,     // 最大输出 token
-        reasoningEffort: 'auto',    // 思考层级: auto / low / medium / high
+        reasoningEffort: 'auto',    // 思考层级: auto / none / low / medium / high / xhigh / max
         proxyUrl: '',               // HTTP 代理地址，如 http://127.0.0.1:7890
     },
 

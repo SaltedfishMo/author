@@ -161,8 +161,10 @@ export default function UpdateBanner() {
                         if (data.success) {
                             if (data.needRestart) {
                                 // 代码已更新或之前更新过但未重启
-                                const ver = data.diskVersion ? ` v${data.diskVersion}` : '';
-                                setUpdateResult({ success: true, message: `代码已更新到${ver}，请重启服务生效`, needRestart: true });
+                                const message = data.diskVersion
+                                    ? t('update.codeUpdatedRestartVersion', { version: data.diskVersion })
+                                    : t('update.codeUpdatedRestart');
+                                setUpdateResult({ success: true, message, needRestart: true });
                             } else if (data.alreadyUpToDate) {
                                 setUpdateResult({ success: true, message: t('update.alreadyLatest') });
                             } else {

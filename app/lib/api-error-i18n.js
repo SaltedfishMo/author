@@ -6,6 +6,14 @@
 //
 // 用法：localizeApiError(await res.json(), text)，text 来自 useI18n()。
 
+import { SEARCH_TOOL_LABELS } from './search-config.js';
+
+// 搜索错误的 payload.provider 是搜索工具名，显示成"联网搜索（DeepSeek）"这样的写法
+function searchToolLabel(payload, open = ' (', close = ')') {
+    const label = SEARCH_TOOL_LABELS[payload?.provider];
+    return label ? `${open}${label}${close}` : '';
+}
+
 export function localizeApiError(payload, text) {
     if (payload == null) return '';
     if (typeof payload === 'string') return payload;
@@ -118,6 +126,32 @@ export function localizeApiError(payload, text) {
             return text('API Key 无权限或已被禁用', 'API Key has no permission or has been disabled.', 'У ключа API нет прав или он отключён.');
         case 'AI_OVERLOADED':
             return text('Anthropic API 过载，请稍后再试', 'Anthropic API is overloaded. Please try again later.', 'Anthropic API перегружен. Повторите позже.');
+
+        // —— 联网搜索（Function Calling 外部搜索；payload.provider 是搜索工具）——
+        case 'SEARCH_NO_BASE_URL':
+            return text(`请先填写联网搜索${searchToolLabel(payload, '（', '）')}的 API 地址`, `Please enter the web search${searchToolLabel(payload)} API URL first.`, `Сначала укажите адрес API веб-поиска${searchToolLabel(payload)}.`);
+        case 'SEARCH_NO_API_KEY':
+            return text(`请先配置联网搜索${searchToolLabel(payload, '（', '）')}的 API Key`, `Please configure the web search${searchToolLabel(payload)} API key first.`, `Сначала настройте API-ключ веб-поиска${searchToolLabel(payload)}.`);
+        case 'SEARCH_INVALID_QUERY':
+            return text('搜索关键词不能为空', 'The search query cannot be empty.', 'Поисковый запрос не может быть пустым.');
+        case 'SEARCH_INVALID_KEY':
+            return text(`联网搜索${searchToolLabel(payload, '（', '）')}的 API Key 无效或无权限，搜索没有完成，回答可能缺少最新资料。请到 设置 → API配置 → 联网搜索 检查。`, `The web search${searchToolLabel(payload)} API key is invalid or not allowed, so the search did not run and the answer may miss recent information. Check Settings -> API Config -> Web Search.`, `API-ключ веб-поиска${searchToolLabel(payload)} недействителен или не имеет доступа: поиск не выполнен, в ответе может не хватать свежих данных. Проверьте Настройки -> API -> Веб-поиск.`);
+        case 'SEARCH_INSUFFICIENT_BALANCE':
+            return text(`联网搜索${searchToolLabel(payload, '（', '）')}账户余额不足，搜索没有完成，回答可能缺少最新资料。充值后再试。`, `The web search${searchToolLabel(payload)} account balance is too low, so the search did not run and the answer may miss recent information. Top up and retry.`, `Недостаточно средств на счёте веб-поиска${searchToolLabel(payload)}: поиск не выполнен, в ответе может не хватать свежих данных. Пополните баланс и повторите.`);
+        case 'SEARCH_RATE_LIMITED':
+            return text(`联网搜索${searchToolLabel(payload, '（', '）')}请求太频繁，被限速了，部分搜索没有完成，回答可能缺少最新资料。等几秒再试。`, `Web search${searchToolLabel(payload)} was rate-limited because of too many requests. Some searches did not run, so the answer may miss recent information. Wait a few seconds and retry.`, `Веб-поиск${searchToolLabel(payload)} ограничен из-за слишком частых запросов: часть запросов не выполнена, в ответе может не хватать свежих данных. Подождите несколько секунд и повторите.`);
+        case 'SEARCH_UNAVAILABLE':
+            return text(`联网搜索${searchToolLabel(payload, '（', '）')}暂时不可用，部分搜索没有完成，回答可能缺少最新资料。请稍后再试。`, `Web search${searchToolLabel(payload)} is temporarily unavailable. Some searches did not run, so the answer may miss recent information. Please retry later.`, `Веб-поиск${searchToolLabel(payload)} временно недоступен: часть запросов не выполнена, в ответе может не хватать свежих данных. Повторите позже.`);
+        case 'SEARCH_REQUEST_REJECTED':
+            return text(`联网搜索${searchToolLabel(payload, '（', '）')}拒绝了请求，部分搜索没有完成。请检查搜索的 API 地址。`, `Web search${searchToolLabel(payload)} rejected the request, so some searches did not run. Check the search API URL.`, `Веб-поиск${searchToolLabel(payload)} отклонил запрос, часть запросов не выполнена. Проверьте адрес API поиска.`);
+        case 'FETCH_INVALID_URL':
+            return text(`读取网页${searchToolLabel(payload, '（', '）')}：网页地址格式不对（只支持 http 或 https），没有读取。`, `Page reading${searchToolLabel(payload)}: the page URL is not valid (only http or https), so it was not read.`, `Чтение страницы${searchToolLabel(payload)}: неверный адрес страницы (только http или https), страница не прочитана.`);
+        case 'FETCH_BLOCKED':
+            return text(`读取网页${searchToolLabel(payload, '（', '）')}：这个网站不允许读取，回答里没有用上网页全文。`, `Page reading${searchToolLabel(payload)}: this site does not allow reading, so the answer does not use the full page text.`, `Чтение страницы${searchToolLabel(payload)}: сайт не разрешает чтение, ответ дан без полного текста страницы.`);
+        case 'FETCH_UNREADABLE':
+            return text(`读取网页${searchToolLabel(payload, '（', '）')}：没能读到这个网页的正文（可能打不开，或不是文字页面），回答里没有用上网页全文。`, `Page reading${searchToolLabel(payload)}: could not read the page text (the page may be unavailable or not a text page), so the answer does not use it.`, `Чтение страницы${searchToolLabel(payload)}: не удалось прочитать текст страницы (она может быть недоступна или не содержит текста), ответ дан без него.`);
+        case 'SEARCH_INVALID_RESPONSE':
+            return text(`联网搜索${searchToolLabel(payload, '（', '）')}返回了无法识别的结果，请检查搜索的 API 地址。`, `Web search${searchToolLabel(payload)} returned an unrecognized response. Check the search API URL.`, `Веб-поиск${searchToolLabel(payload)} вернул нераспознанный ответ. Проверьте адрес API поиска.`);
 
         // —— 文件解析 / 同步 ——
         case 'REQUEST_TOO_LARGE':

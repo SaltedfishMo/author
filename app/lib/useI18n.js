@@ -8,6 +8,7 @@ import ru from '../locales/ru.json';
 
 const translations = { en, zh, ru };
 const FALLBACK_LANGUAGES = ['en', 'zh'];
+export const LANGUAGES = Object.keys(translations);
 
 function readPath(lang, keys) {
     let current = translations[lang];
@@ -17,6 +18,23 @@ function readPath(lang, keys) {
         current = current[key];
     }
     return current;
+}
+
+// 按指定语言取文案，供语言在渲染之外才确定的场景使用（hook 里的 t 也走这里）
+export function translate(language, path, params = {}) {
+    const keys = path.split('.');
+    const fallbackChain = [language, ...FALLBACK_LANGUAGES.filter(lang => lang !== language)];
+    for (const lang of fallbackChain) {
+        const value = readPath(lang, keys);
+        if (value !== undefined) {
+            return typeof value === 'string'
+                ? value.replace(/\{(\w+)\}/g, (match, key) => (params[key] ?? match))
+                : value;
+        }
+    }
+
+    console.warn(`Translation missing for key: ${path} in lang: ${language}`);
+    return path;
 }
 
 export function useI18n() {
@@ -32,21 +50,7 @@ export function useI18n() {
 
     // t / text 用 useCallback 固定引用（仅随 language 变化），
     // 否则每次渲染都是新函数，会让依赖它们的 useMemo/useEffect 失效甚至无限循环。
-    const t = useCallback((path, params = {}) => {
-        const keys = path.split('.');
-        const fallbackChain = [language, ...FALLBACK_LANGUAGES.filter(lang => lang !== language)];
-        for (const lang of fallbackChain) {
-            const value = readPath(lang, keys);
-            if (value !== undefined) {
-                return typeof value === 'string'
-                    ? value.replace(/\{(\w+)\}/g, (match, key) => (params[key] ?? match))
-                    : value;
-            }
-        }
-
-        console.warn(`Translation missing for key: ${path} in lang: ${language}`);
-        return path;
-    }, [language]);
+    const t = useCallback((path, params = {}) => translate(language, path, params), [language]);
 
     const text = useCallback((zhText, enText, ruText = enText) => {
         if (language === 'en') return enText;

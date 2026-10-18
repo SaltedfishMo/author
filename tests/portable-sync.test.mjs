@@ -4,7 +4,7 @@ import test from 'node:test';
 
 // WebDAV（坚果云等）自动同步在手机上的两个问题：
 //   1. 待推队列只在内存里，手机浏览器切到后台被冻结或回收，5 分钟定时器等不到，内容推不出去；
-//   2. 官网前面的反向代理嫌请求体太大时直接回 HTML 413，用户只看到一句 "WebDAV put failed"。
+//   2. 部署在反向代理后面时，代理嫌请求体太大会直接回 HTML 413，用户只看到一句 "WebDAV put failed"。
 
 const moduleUrl = new URL('../app/lib/portable-sync.js', import.meta.url);
 const PENDING_KEY = 'author-sync-webdav-pending-v1';
@@ -188,4 +188,32 @@ test('未启用 WebDAV 时启动不做任何事', async t => {
     const page = await openPage(t, { storage });
     assert.equal(await page.sync.resumePortableSync(), 0);
     assert.equal(page.requests.length, 0);
+});
+
+// 局域网导入：只填分享码时只能在本服务器上找。电脑版的分享在另一台机器上，
+// 找不到时要告诉用户改贴完整链接，而不是只说"分享不存在或已过期"。
+async function openLanImport(t, respond) {
+    const page = await openPage(t);
+    const urls = [];
+    globalThis.fetch.mock.mockImplementation(async (url) => { urls.push(String(url)); return respond(String(url)); });
+    return { page, urls };
+}
+
+test('局域网导入只填分享码却找不到时，提示粘贴完整链接', async t => {
+    const { page, urls } = await openLanImport(t, () => Response.json({ error: 'not found', code: 'SHARE_NOT_FOUND' }, { status: 404 }));
+    await assert.rejects(page.sync.importLanShare('a1'.repeat(16)), /完整链接/);
+    assert.equal(urls.length, 1);
+    assert.ok(urls[0].endsWith(`/api/sync/lan?token=${'a1'.repeat(16)}`));
+});
+
+test('局域网导入用完整链接时，过期仍提示分享不存在或已过期', async t => {
+    const link = `http://192.168.1.20:3001/api/sync/lan?token=${'a1'.repeat(16)}`;
+    const { page, urls } = await openLanImport(t, () => Response.json({ error: 'not found', code: 'SHARE_NOT_FOUND' }, { status: 404 }));
+    await assert.rejects(page.sync.importLanShare(link), /分享不存在或已过期/);
+    assert.deepEqual(urls, [link]);
+});
+
+test('同一服务器上的分享码照常能导入', async t => {
+    const { page } = await openLanImport(t, () => Response.json({ type: 'author-sync-snapshot-v1', version: 1, entries: [] }));
+    assert.equal(await page.sync.importLanShare('a1'.repeat(16)), 0);
 });

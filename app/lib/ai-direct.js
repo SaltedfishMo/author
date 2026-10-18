@@ -18,39 +18,8 @@ import { apiPath } from './api-base';
 import { IS_OFFICIAL_WEB } from './deployment-target';
 import { rotateKey } from './keyRotator';
 import { applyContentSafety } from './content-safety';
-
-// ===== 以下工具函数镜像自 app/api/ai/route.js =====
-
-const DEEPSEEK_V4_MODELS = new Set(['deepseek-v4-pro', 'deepseek-v4-flash']);
-
-function normalizeModel(model) {
-    return (model || '').trim().toLowerCase();
-}
-
-function isDeepSeekRequest(apiConfig, baseUrl, model) {
-    const provider = (apiConfig?.providerType || apiConfig?.provider || '').toLowerCase();
-    return provider === 'deepseek'
-        || (baseUrl || '').includes('api.deepseek.com')
-        || DEEPSEEK_V4_MODELS.has(normalizeModel(model));
-}
-
-function isDeepSeekV4Model(model) {
-    return DEEPSEEK_V4_MODELS.has(normalizeModel(model));
-}
-
-function buildBaseParams({ model, maxTokens, temperature, topP, reasoningEffort }) {
-    const isV4 = isDeepSeekV4Model(model);
-    const thinkingType = isV4 ? (reasoningEffort === 'none' ? 'disabled' : 'enabled') : null;
-    const thinkingEnabled = thinkingType === 'enabled';
-
-    return {
-        ...(temperature != null && !thinkingEnabled ? { temperature } : {}),
-        ...(topP != null && !thinkingEnabled ? { top_p: topP } : {}),
-        ...(maxTokens ? { max_tokens: maxTokens } : {}),
-        ...(thinkingType ? { thinking: { type: thinkingType } } : {}),
-        ...(reasoningEffort && reasoningEffort !== 'auto' && !(isV4 && reasoningEffort === 'none') ? { reasoning_effort: reasoningEffort } : {}),
-    };
-}
+// 模型识别与参数拼装和 app/api/ai/route.js 共用同一份实现
+import { buildOpenAiCompatibleParams, DEEPSEEK_DEFAULT_MODEL, isDeepSeekRequest } from './ai-model-rules.js';
 
 // ===== 开关与资格判断 =====
 
@@ -84,11 +53,11 @@ async function directOpenAiFetch(payload, signal) {
     const apiConfig = payload?.apiConfig || {};
     const apiKey = rotateKey(apiConfig.apiKey);
     const baseUrl = String(apiConfig.baseUrl || '').trim();
-    const model = apiConfig.model || 'glm-4-flash';
+    const model = apiConfig.model || 'glm-4.7-flash';
     const { systemPrompt, userPrompt, maxTokens, temperature, topP, reasoningEffort, tools: toolsConfig } = payload;
 
     const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
-    const baseParams = buildBaseParams({ model, maxTokens, temperature, topP, reasoningEffort });
+    const baseParams = buildOpenAiCompatibleParams({ model, maxTokens, temperature, topP, reasoningEffort });
     const shouldIncludeStreamUsage = Boolean(toolsConfig?.webSearch) || isDeepSeekRequest(apiConfig, baseUrl, model);
 
     const messages = [
@@ -169,7 +138,7 @@ export async function testAiConnection(apiConfig) {
     };
 
     const baseUrl = String(normalizedConfig.baseUrl || '').trim();
-    const model = normalizedConfig.model || 'deepseek-v4-pro';
+    const model = normalizedConfig.model || DEEPSEEK_DEFAULT_MODEL;
     // DeepSeek 预设没有格式切换；忽略旧配置中可能残留的 anthropic 标记。
     const useAnthropicFormat = normalizedConfig.provider === 'claude'
         || (normalizedConfig.apiFormat === 'anthropic' && normalizedConfig.provider !== 'deepseek');

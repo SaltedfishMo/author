@@ -21,6 +21,7 @@ import { resolveAiEndpoint } from '../lib/ai-provider-compat';
 import { readAiEvents } from '../lib/ai-stream.js';
 import { aiFetch } from '../lib/ai-direct';
 import { localizeApiError } from '../lib/api-error-i18n';
+import { resolveFunctionSearchConfig } from '../lib/search-config';
 import {
     applySettingsUndoPatch,
     canUndoCreatedSettingsNode,
@@ -1090,15 +1091,15 @@ export default function AiSidebar({ onInsertText }) {
                 // OpenAI 兼容端点的内置搜索
                 toolsPayload = { webSearch: true };
             } else if (searchMode === 'external' || !isOpenAI) {
-                // Function Calling 外部搜索 — 需要外部搜索 API Key
-                const sc = apiConfig?.searchConfig || {};
-                if (sc.apiKey) {
+                // Function Calling 外部搜索 — 需要搜索工具的 API Key（DeepSeek 搜索留空时用已配置的 DeepSeek 服务商）
+                const sc = resolveFunctionSearchConfig(apiConfig, getProjectSettings().apiConfig);
+                if (sc) {
                     toolsPayload = {
                         functionSearch: true,
                         searchConfig: sc,
                     };
                 } else {
-                    showToast?.(tx('⚠️ 联网搜索需要配置 Tavily 或 Exa API Key，请在设置 → API配置 → 联网搜索 中填入', '⚠️ Web search requires a Tavily or Exa API key. Add it in Settings -> API Config -> Web Search', '⚠️ Для веб-поиска нужен API-ключ Tavily или Exa. Добавьте его в Настройки -> API -> Веб-поиск'), 'warning');
+                    showToast?.(tx('⚠️ 联网搜索需要配置搜索工具（Tavily、Exa 或 DeepSeek）的 API Key，请在设置 → API配置 → 联网搜索 中填入', '⚠️ Web search requires an API key for the search tool (Tavily, Exa, or DeepSeek). Add it in Settings -> API Config -> Web Search', '⚠️ Для веб-поиска нужен API-ключ инструмента поиска (Tavily, Exa или DeepSeek). Добавьте его в Настройки -> API -> Веб-поиск'), 'warning');
                 }
             }
         }
@@ -1146,6 +1147,7 @@ export default function AiSidebar({ onInsertText }) {
                 if (json.codeExec) { toolCalls.push({ type: 'codeExec', ...json.codeExec }); hasUpdate = true; }
                 if (json.codeResult) { toolCalls.push({ type: 'codeResult', ...json.codeResult }); hasUpdate = true; }
                 if (json.grounding) { toolCalls.push({ type: 'grounding', ...json.grounding }); hasUpdate = true; }
+                if (json.searchNotice?.code) { toolCalls.push({ type: 'searchNotice', code: json.searchNotice.code, provider: json.searchNotice.provider || '' }); hasUpdate = true; }
                 if (hasUpdate) onUpdate(fullText, fullThinking, toolCalls);
             }
         } finally {
@@ -2365,6 +2367,11 @@ export default function AiSidebar({ onInsertText }) {
                                                                     </a>
                                                                 ))}
                                                             </div>
+                                                        </div>
+                                                    );
+                                                    if (tc.type === 'searchNotice') return (
+                                                        <div key={idx} className="tool-call-card code-result error">
+                                                            <div className="tool-call-header">⚠️ {localizeApiError({ code: tc.code, provider: tc.provider }, tx) || tx('联网搜索没有完成', 'Web search did not complete', 'Веб-поиск не выполнен')}</div>
                                                         </div>
                                                     );
                                                     return null;

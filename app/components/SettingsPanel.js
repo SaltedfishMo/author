@@ -38,9 +38,11 @@ import {
     getProviderInstances,
     getBuiltInWorkName,
 } from '../lib/settings';
+import { DEEPSEEK_RETIRED_MODELS } from '../lib/ai-model-rules';
 import SettingsTree from './SettingsTree';
 import { useI18n } from '../lib/useI18n';
 import { localizeApiError } from '../lib/api-error-i18n';
+import { DEEPSEEK_SEARCH_DEFAULT_BASE_URL, SEARCH_TOOL_KEY_PAGES, SEARCH_TOOL_LABELS, SEARCH_TOOLS, deepSeekSearchPrefill, findConfiguredDeepSeekApi, getSearchTool, isDeepSeekReadAfterSearchEnabled, isDeepSeekReadWebpageEnabled } from '../lib/search-config';
 import { apiPath } from '../lib/api-base';
 import { testAiConnection } from '../lib/ai-direct';
 import { getEmbeddingProviderConfig } from '../lib/embedding-provider-config';
@@ -113,19 +115,27 @@ function getIconByName(name) {
     return ICON_MAP[name] || null;
 }
 
-async function parseBalanceResponse(res) {
-    const text = await res.text();
-    if (!text) return {};
+async function parseBalanceResponse(res, text) {
+    const body = await res.text();
+    if (!body) return {};
 
     try {
-        return JSON.parse(text);
+        return JSON.parse(body);
     } catch {
-        const trimmed = text.trim().toLowerCase();
+        const trimmed = body.trim().toLowerCase();
         const isHtml = trimmed.startsWith('<!doctype') || trimmed.startsWith('<html');
         return {
             error: isHtml
-                ? `余额查询接口返回了网页错误页（HTTP ${res.status}），请检查部署路由或服务端日志。`
-                : `余额查询接口返回了非 JSON 响应（HTTP ${res.status}）。`,
+                ? text(
+                    `余额查询接口返回了网页错误页（HTTP ${res.status}），请检查部署路由或服务端日志。`,
+                    `The balance endpoint returned an HTML error page (HTTP ${res.status}). Check the deployment routing or server logs.`,
+                    `Запрос баланса вернул HTML-страницу ошибки (HTTP ${res.status}). Проверьте маршрутизацию развертывания или журналы сервера.`,
+                )
+                : text(
+                    `余额查询接口返回了非 JSON 响应（HTTP ${res.status}）。`,
+                    `The balance endpoint returned a non-JSON response (HTTP ${res.status}).`,
+                    `Запрос баланса вернул ответ не в формате JSON (HTTP ${res.status}).`,
+                ),
         };
     }
 }
@@ -1438,8 +1448,6 @@ export default function SettingsPanel() {
     );
 }
 
-const DEEPSEEK_DEPRECATED_MODELS = new Set(['deepseek-chat', 'deepseek-reasoner']);
-
 function mergeFetchedAndSavedModels(fetchedModels, savedModels) {
     const seen = new Set();
     const merged = [];
@@ -1461,37 +1469,39 @@ function mergeFetchedAndSavedModels(fetchedModels, savedModels) {
     return merged;
 }
 
-const FOREIGN_COMPATIBLE_PROVIDER_KEYS = ['openai', 'claude', 'gemini', 'gemini-native', 'groq', 'mistral', 'cohere', 'together', 'perplexity', 'xai', 'cerebras', 'github', 'openrouter'];
+const FOREIGN_COMPATIBLE_PROVIDER_KEYS = ['openai', 'claude', 'gemini', 'gemini-native', 'groq', 'mistral', 'cohere', 'together', 'perplexity', 'xai', 'cerebras', 'openrouter'];
+
+// Gemini 兼容与原生共用。第一个是切换服务商时的默认模型：4 Argon 不在免费层，默认用 3.8 Flash。
+// 先列稳定版，再列预览版；2.5 系列仅对以前用过的账号开放
+const GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-4-argon', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 
 export const PROVIDERS = [
     // === 国内供应商 ===
-    { key: 'zhipu', label: '智谱AI (GLM)', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4-flash', 'glm-4-plus', 'glm-4-long', 'glm-4'] },
-    { key: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', models: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner'] },
-    { key: 'bailian', label: '阿里云百炼 (千问)', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', anthropicBaseUrl: 'https://dashscope.aliyuncs.com/apps/anthropic', models: ['qwen3.5-plus', 'qwen3-max'], supportedFormats: ['openai', 'anthropic'], defaultFormat: 'openai', allowCustomModel: true },
-    { key: 'volcengine', label: '火山引擎 (豆包)', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', models: [], hint: '需在火山引擎控制台创建推理接入点，填入 endpoint_id 作为模型名' },
-    { key: 'moonshot', label: 'Moonshot (Kimi)', baseUrl: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
-    { key: 'stepfun', label: '阶跃星辰 (Step)', baseUrl: 'https://api.stepfun.com/v1', models: ['step-2-16k', 'step-1-8k', 'step-1-32k', 'step-1-128k'] },
-    { key: 'yi', label: '零一万物 (Yi)', baseUrl: 'https://api.lingyiwanwu.com/v1', models: ['yi-lightning', 'yi-large', 'yi-medium', 'yi-spark'] },
-    { key: 'baichuan', label: '百川 (Baichuan)', baseUrl: 'https://api.baichuan-ai.com/v1', models: ['Baichuan4', 'Baichuan3-Turbo', 'Baichuan3-Turbo-128k'] },
-    { key: 'hunyuan', label: '腾讯混元', baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1', models: ['hunyuan-turbo', 'hunyuan-pro', 'hunyuan-standard', 'hunyuan-lite'] },
-    { key: 'baidu', label: '百度文心', baseUrl: 'https://qianfan.baidubce.com/v2', models: ['ernie-4.0-turbo-8k', 'ernie-4.0-8k', 'ernie-3.5-8k', 'ernie-speed-8k'] },
-    { key: 'minimax', label: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', anthropicBaseUrl: 'https://api.minimaxi.com/anthropic', models: ['MiniMax-M2.5', 'MiniMax-M2.1', 'MiniMax-M2.5-highspeed'], supportedFormats: ['openai', 'anthropic'], defaultFormat: 'openai', allowCustomModel: true },
-    { key: 'siliconflow', label: 'SiliconFlow (硅基流动)', baseUrl: 'https://api.siliconflow.cn/v1', models: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct', 'THUDM/glm-4-9b-chat'] },
+    { key: 'zhipu', label: '智谱AI (GLM)', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4.7-flash', 'glm-5.3', 'glm-5.3-flash', 'glm-5.2', 'glm-5-turbo', 'glm-4.7', 'glm-4-flash-250414', 'glm-4.6v'] },
+    { key: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', models: ['deepseek-flash', 'deepseek-v4-pro'] },
+    { key: 'bailian', label: '阿里云百炼 (千问)', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', anthropicBaseUrl: 'https://dashscope.aliyuncs.com/apps/anthropic', models: ['qwen3.7-plus', 'qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-flash', 'qwen3.5-plus', 'qwen-long'], supportedFormats: ['openai', 'anthropic'], defaultFormat: 'openai', allowCustomModel: true },
+    { key: 'volcengine', label: '火山引擎 (豆包)', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', models: ['doubao-seed-2-1-pro-260915', 'doubao-seed-2-1-lite-260915', 'doubao-seed-2-1-turbo-260628', 'doubao-seed-evolving', 'doubao-seed-2-0-lite-260428', 'doubao-seed-2-0-mini-260428', 'deepseek-v4-1-flash-260910', 'glm-5-3-flash-260828'], hint: '可直接填模型 ID（需先在控制台开通该模型），也可填推理接入点 ID' },
+    { key: 'moonshot', label: 'Moonshot (Kimi)', baseUrl: 'https://api.moonshot.cn/v1', models: ['kimi-k3', 'kimi-k2.6', 'kimi-k2.7-code', 'kimi-k2.7-code-highspeed'] },
+    { key: 'stepfun', label: '阶跃星辰 (Step)', baseUrl: 'https://api.stepfun.com/v1', models: ['step-3.7-flash', 'step-5-preview', 'step-3.5-flash', 'step-3.5-flash-2603', 'step-1o-turbo-vision'] },
+    { key: 'baichuan', label: '百川 (Baichuan)', baseUrl: 'https://api.baichuan-ai.com/v1', models: ['Baichuan4-Turbo', 'Baichuan4-Air', 'Baichuan4', 'Baichuan3-Turbo', 'Baichuan3-Turbo-128k', 'Baichuan-M3-Plus'] },
+    { key: 'hunyuan', label: '腾讯混元', baseUrl: 'https://tokenhub.tencentmaas.com/v1', models: ['hy3', 'hy4-preview', 'hunyuan-role-latest', 'hy-vision-2.0-instruct', 'deepseek-v4.1-flash', 'glm-5.3', 'kimi-k3', 'minimax-m3'] },
+    { key: 'baidu', label: '百度文心', baseUrl: 'https://qianfan.baidubce.com/v2', models: ['ernie-5.1', 'ernie-5.0', 'ernie-5.0-thinking-latest', 'ernie-4.5-turbo-128k', 'ernie-4.5-turbo-32k', 'ernie-4.5-turbo-vl', 'deepseek-v4.1-flash', 'glm-5.3'] },
+    { key: 'minimax', label: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', anthropicBaseUrl: 'https://api.minimaxi.com/anthropic', models: ['MiniMax-M3'], supportedFormats: ['openai', 'anthropic'], defaultFormat: 'openai', allowCustomModel: true },
+    { key: 'siliconflow', label: 'SiliconFlow (硅基流动)', baseUrl: 'https://api.siliconflow.cn/v1', models: ['deepseek-ai/DeepSeek-V4.1-Flash', 'deepseek-ai/DeepSeek-V4-Pro', 'zai-org/GLM-5.3', 'zai-org/GLM-5.3-Flash', 'Pro/moonshotai/Kimi-K2.6', 'moonshotai/Kimi-K2.7-Code', 'Qwen/Qwen3.8-27B', 'tencent/Hy4-preview', 'deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct'] },
     // === 国际供应商 ===
-    { key: 'openai', label: 'OpenAI 兼容', baseUrl: '', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'o3-mini'] },
-    { key: 'claude', label: 'Claude 兼容', baseUrl: '', models: ['claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219', 'claude-3-5-haiku-20241022'], apiFormat: 'anthropic' },
-    { key: 'gemini', label: 'Gemini 兼容', baseUrl: '', models: ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'] },
-    { key: 'gemini-native', label: 'Gemini 原生', baseUrl: '', models: ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'], hint: '原生 generateContent 协议，支持 Google 搜索 grounding 与代码执行。地址通常以 /v1beta 结尾，自行填写' },
-    { key: 'groq', label: 'Groq 兼容', baseUrl: '', models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'] },
-    { key: 'mistral', label: 'Mistral 兼容', baseUrl: '', models: ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'open-mistral-nemo'] },
-    { key: 'cohere', label: 'Cohere 兼容', baseUrl: '', models: ['command-r-plus', 'command-r', 'command-light'] },
-    { key: 'together', label: 'Together AI 兼容', baseUrl: '', models: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct-Turbo', 'deepseek-ai/DeepSeek-R1'] },
-    { key: 'perplexity', label: 'Perplexity 兼容', baseUrl: '', models: ['sonar-pro', 'sonar', 'sonar-reasoning-pro', 'sonar-reasoning'] },
-    { key: 'xai', label: 'xAI (Grok) 兼容', baseUrl: '', models: ['grok-3', 'grok-3-mini', 'grok-2'] },
-    { key: 'cerebras', label: 'Cerebras 兼容', baseUrl: '', models: ['llama-3.3-70b', 'llama-3.1-8b'] },
-    { key: 'github', label: 'GitHub Models 兼容', baseUrl: '', models: ['gpt-4o', 'gpt-4o-mini', 'Phi-3.5-MoE-instruct'] },
+    { key: 'openai', label: 'OpenAI 兼容', baseUrl: '', models: ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.2', 'o3'] },
+    { key: 'claude', label: 'Claude 兼容', baseUrl: '', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-1', 'claude-fable-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5', 'claude-opus-4-5', 'claude-sonnet-4-5'], apiFormat: 'anthropic' },
+    { key: 'gemini', label: 'Gemini 兼容', baseUrl: '', models: GEMINI_MODELS },
+    { key: 'gemini-native', label: 'Gemini 原生', baseUrl: '', models: GEMINI_MODELS, hint: '原生 generateContent 协议，支持 Google 搜索 grounding 与代码执行。地址通常以 /v1beta 结尾，自行填写' },
+    { key: 'groq', label: 'Groq 兼容', baseUrl: '', models: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'] },
+    { key: 'mistral', label: 'Mistral 兼容', baseUrl: '', models: ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'mistral-large-4', 'ministral-14b-2512', 'ministral-8b-latest', 'ministral-3b-2512', 'codestral-latest'] },
+    { key: 'cohere', label: 'Cohere 兼容', baseUrl: '', models: ['command-a-plus-05-2026', 'command-a-03-2025', 'command-a-reasoning-08-2025', 'command-a-vision-07-2025', 'command-r7b-12-2024', 'command-r-plus-08-2024', 'command-r-08-2024'] },
+    { key: 'together', label: 'Together AI 兼容', baseUrl: '', models: ['deepseek-ai/DeepSeek-V4-Pro-0813', 'deepseek-ai/DeepSeek-V4.1-Flash', 'Qwen/Qwen3.7-Max', 'Qwen/Qwen3.7-Plus', 'Qwen/Qwen3.8-Flash', 'moonshotai/Kimi-K3', 'zai-org/GLM-5.3', 'openai/gpt-oss-120b'] },
+    { key: 'perplexity', label: 'Perplexity 兼容', baseUrl: '', models: ['sonar-pro', 'sonar', 'sonar-reasoning-pro'] },
+    { key: 'xai', label: 'xAI (Grok) 兼容', baseUrl: '', models: ['grok-4.7', 'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning', 'grok-build-0.1'] },
+    { key: 'cerebras', label: 'Cerebras 兼容', baseUrl: '', models: ['gpt-oss-120b', 'qwen-3.8-27b'] },
     // === 聚合/转发 ===
-    { key: 'openrouter', label: 'OpenRouter 兼容', baseUrl: '', models: ['google/gemini-2.5-flash-preview', 'anthropic/claude-sonnet-4', 'openai/gpt-4o', 'deepseek/deepseek-chat-v3-0324', 'meta-llama/llama-4-maverick'] },
+    { key: 'openrouter', label: 'OpenRouter 兼容', baseUrl: '', models: ['google/gemini-3.8-flash', 'google/gemini-4-argon', 'anthropic/claude-opus-5.5', 'anthropic/claude-sonnet-5.5', 'anthropic/claude-haiku-5.5', 'openai/gpt-6-astra', 'openai/gpt-6.1-sol', 'deepseek/deepseek-v4.1-flash', 'deepseek/deepseek-v4-pro', 'qwen/qwen3.8-max-0902', 'moonshotai/kimi-k3', 'z-ai/glm-5.3'] },
     // === 自定义 ===
     { key: 'custom', label: '自定义兼容端点', baseUrl: '', models: [] },
 ];
@@ -1503,7 +1513,6 @@ const PROVIDER_LABELS = {
     volcengine: ['火山引擎 (豆包)', 'Volcengine (Doubao)', 'Volcengine (Doubao)'],
     moonshot: ['Moonshot (Kimi)', 'Moonshot (Kimi)', 'Moonshot (Kimi)'],
     stepfun: ['阶跃星辰 (Step)', 'StepFun (Step)', 'StepFun (Step)'],
-    yi: ['零一万物 (Yi)', '01.AI (Yi)', '01.AI (Yi)'],
     baichuan: ['百川 (Baichuan)', 'Baichuan', 'Baichuan'],
     hunyuan: ['腾讯混元', 'Tencent Hunyuan', 'Tencent Hunyuan'],
     baidu: ['百度文心', 'Baidu Wenxin', 'Baidu Wenxin'],
@@ -1520,7 +1529,6 @@ const PROVIDER_LABELS = {
     perplexity: ['Perplexity 兼容', 'Perplexity-compatible', 'Perplexity-compatible'],
     xai: ['xAI (Grok) 兼容', 'xAI (Grok)-compatible', 'xAI (Grok)-compatible'],
     cerebras: ['Cerebras 兼容', 'Cerebras-compatible', 'Cerebras-compatible'],
-    github: ['GitHub Models 兼容', 'GitHub Models-compatible', 'GitHub Models-compatible'],
     openrouter: ['OpenRouter 兼容', 'OpenRouter-compatible', 'OpenRouter-compatible'],
     custom: ['自定义兼容端点', 'Custom compatible endpoint', 'Custom compatible endpoint'],
 };
@@ -1536,7 +1544,7 @@ function getDefaultEmbedModel(providerKey) {
     if (providerKey === 'zhipu') return 'embedding-3';
     if (providerKey === 'bailian') return 'text-embedding-v4';
     if (providerKey === 'openai') return 'text-embedding-3-small';
-    if (providerKey === 'gemini') return 'text-embedding-004';
+    if (providerKey === 'gemini') return 'gemini-embedding-001';
     return '';
 }
 
@@ -2180,13 +2188,27 @@ function ApiConfigForm({ data, onChange }) {
     // 对于实例 key（如 deepseek_abc），通过 providerType 查找预设定义
     const instanceCfg = data.providerConfigs?.[data.provider];
     const resolvedProviderType = instanceCfg?.providerType || data.provider;
-    const currentProvider = PROVIDERS.find(p => p.key === data.provider) || PROVIDERS.find(p => p.key === resolvedProviderType) || PROVIDERS[7];
+    const currentProvider = PROVIDERS.find(p => p.key === data.provider) || PROVIDERS.find(p => p.key === resolvedProviderType) || PROVIDERS.find(p => p.key === 'custom');
     const isCustom = resolvedProviderType === 'custom';
     const isForeignCompatible = FOREIGN_COMPATIBLE_PROVIDER_KEYS.includes(resolvedProviderType);
     const requiresExplicitBaseUrl = isCustom || isForeignCompatible;
 
+    // 联网搜索（外部搜索）：DeepSeek 搜索有自己的 Key 和地址字段，选中时预填已配置的 DeepSeek 服务商
+    const searchTool = getSearchTool(data.searchConfig);
+    const searchToolLabel = SEARCH_TOOL_LABELS[searchTool];
+    const isDeepSeekSearch = searchTool === 'deepseek';
+    const configuredDeepSeek = findConfiguredDeepSeekApi(data);
+    const searchKeyField = isDeepSeekSearch ? 'deepseekApiKey' : 'apiKey';
+    const searchBaseUrlField = isDeepSeekSearch ? 'deepseekBaseUrl' : 'baseUrl';
+    const searchApiKey = data.searchConfig?.[searchKeyField] || '';
+    const updateSearchConfig = patch => onChange({ ...data, searchConfig: { ...(data.searchConfig || {}), ...patch } });
+    const selectSearchTool = tool => updateSearchConfig({
+        tool,
+        ...(tool === 'deepseek' ? deepSeekSearchPrefill(data.searchConfig, configuredDeepSeek) : {}),
+    });
+
     // 嵌入模型供应商
-    const EMBED_EXCLUDED = ['deepseek', 'moonshot', 'siliconflow', 'claude', 'openrouter', 'groq', 'mistral', 'cohere', 'together', 'perplexity', 'xai', 'cerebras', 'github', 'stepfun', 'volcengine', 'minimax', 'yi', 'baidu'];
+    const EMBED_EXCLUDED = ['deepseek', 'moonshot', 'siliconflow', 'claude', 'openrouter', 'groq', 'mistral', 'cohere', 'together', 'perplexity', 'xai', 'cerebras', 'stepfun', 'volcengine', 'minimax', 'baidu'];
     const currentEmbedProvider = PROVIDERS.find(p => p.key === data.embedProvider) || PROVIDERS.find(p => p.key === 'zhipu') || PROVIDERS[0];
     const isEmbedCustom = data.embedProvider === 'custom';
     const handleEmbedProviderChange = (providerKey) => {
@@ -2235,7 +2257,7 @@ function ApiConfigForm({ data, onChange }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: buildBalanceRequestBody(),
             });
-            const result = await parseBalanceResponse(res);
+            const result = await parseBalanceResponse(res, text);
             if (res.ok && !result.error) {
                 setBalanceInfo(result);
             } else {
@@ -2261,7 +2283,7 @@ function ApiConfigForm({ data, onChange }) {
                     headers: { 'Content-Type': 'application/json' },
                     body: buildBalanceRequestBody(),
                 });
-                const result = await parseBalanceResponse(res);
+                const result = await parseBalanceResponse(res, text);
                 if (cancelled) return;
                 if (res.ok && !result.error) {
                     setBalanceInfo(result);
@@ -2311,8 +2333,8 @@ function ApiConfigForm({ data, onChange }) {
                         data-1p-ignore="true"
                     />
                     {[
-                        { group: 'cn', keys: ['zhipu', 'deepseek', 'bailian', 'volcengine', 'moonshot', 'stepfun', 'yi', 'baichuan', 'hunyuan', 'baidu', 'minimax', 'siliconflow'] },
-                        { group: 'global', keys: ['openai', 'claude', 'gemini', 'gemini-native', 'groq', 'mistral', 'cohere', 'together', 'perplexity', 'xai', 'cerebras', 'github'] },
+                        { group: 'cn', keys: ['zhipu', 'deepseek', 'bailian', 'volcengine', 'moonshot', 'stepfun', 'baichuan', 'hunyuan', 'baidu', 'minimax', 'siliconflow'] },
+                        { group: 'global', keys: ['openai', 'claude', 'gemini', 'gemini-native', 'groq', 'mistral', 'cohere', 'together', 'perplexity', 'xai', 'cerebras'] },
                         { group: 'aggregate', keys: ['openrouter'] },
                         { group: 'custom', keys: ['custom'] },
                     ].map(section => {
@@ -2438,20 +2460,26 @@ function ApiConfigForm({ data, onChange }) {
                     {/* 供应商特定提示 */}
                     {isForeignCompatible && (
                         <div className="provider-hint">
-                            {text('仅提供协议兼容入口。请填写你有权使用的中转或自建 API 地址；应用不内置该国外平台的官方直连地址。', 'Only protocol-compatible access is provided. Enter an authorized relay or self-hosted API URL; no official direct foreign-provider URL is built in.', 'Доступен только совместимый протокол. Укажите разрешенный relay или собственный API URL.')}
+                            {text('仅提供协议兼容入口。请填写你有权使用的中转或自建 API 地址；应用不内置该平台的官方直连地址。', 'Only protocol-compatible access is provided. Enter an authorized relay or self-hosted API URL; no official direct URL for this provider is built in.', 'Доступен только совместимый протокол. Укажите разрешенный relay или собственный API URL; официальный прямой адрес этой платформы не встроен.')}
                         </div>
                     )}
+                    {resolvedProviderType === 'perplexity' && (
+                        <div className="provider-hint">{t('apiConfig.providerHintPerplexity')}</div>
+                    )}
                     {resolvedProviderType === 'volcengine' && (
-                        <div className="provider-hint">{text('火山引擎需要先在控制台创建「推理接入点」，然后将 endpoint_id（如 ep-xxxx）填入模型字段。支持豆包系列模型。', 'For Volcengine, create an inference endpoint in the console first, then enter its endpoint_id, such as ep-xxxx, in the model field. Doubao models are supported.', 'Для Volcengine сначала создайте inference endpoint в консоли, затем укажите endpoint_id, например ep-xxxx, в поле модели. Поддерживаются модели Doubao.')}</div>
+                        <div className="provider-hint">{t('apiConfig.providerHintVolcengine')}</div>
                     )}
                     {resolvedProviderType === 'bailian' && (
                         <div className="provider-hint">{text('阿里云百炼平台 API Key 在「模型服务灵积」控制台获取，支持通义千问系列模型。', 'Get the Alibaba Cloud Bailian API key from the Model Studio console. Qwen models are supported.', 'API-ключ Alibaba Cloud Bailian получите в консоли Model Studio. Поддерживаются модели Qwen.')}</div>
                     )}
                     {resolvedProviderType === 'minimax' && (
-                        <div className="provider-hint">{text('MiniMax API Key 在开放平台获取，支持 abab 系列和 MiniMax-Text 系列模型。', 'Get the MiniMax API key from the open platform. abab and MiniMax-Text model families are supported.', 'API-ключ MiniMax получите на открытой платформе. Поддерживаются семейства abab и MiniMax-Text.')}</div>
+                        <div className="provider-hint">{t('apiConfig.providerHintMinimax')}</div>
+                    )}
+                    {resolvedProviderType === 'hunyuan' && (
+                        <div className="provider-hint">{t('apiConfig.providerHintHunyuan')}</div>
                     )}
                     {resolvedProviderType === 'deepseek' && (
-                        <div className="provider-hint">{text('DeepSeek V4 使用 https://api.deepseek.com；余额接口为 GET https://api.deepseek.com/user/balance；deepseek-chat / deepseek-reasoner 将于 2026-07-24 停用，建议切换到 deepseek-v4-pro 或 deepseek-v4-flash。', 'DeepSeek V4 uses https://api.deepseek.com; the balance endpoint is GET https://api.deepseek.com/user/balance. deepseek-chat / deepseek-reasoner will be retired on 2026-07-24; switch to deepseek-v4-pro or deepseek-v4-flash.', 'DeepSeek V4 использует https://api.deepseek.com; endpoint баланса: GET https://api.deepseek.com/user/balance. deepseek-chat / deepseek-reasoner будут отключены 2026-07-24; рекомендуется deepseek-v4-pro или deepseek-v4-flash.')}</div>
+                        <div className="provider-hint">{t('apiConfig.providerHintDeepseek')}</div>
                     )}
 
                     {/* API 格式选择（多格式供应商） */}
@@ -2535,7 +2563,7 @@ function ApiConfigForm({ data, onChange }) {
                         {data.model && (() => {
                             const savedModels = data.providerConfigs?.[data.provider]?.models || [];
                             const isInList = savedModels.includes(data.model);
-                            const isDeprecatedDeepSeekModel = resolvedProviderType === 'deepseek' && DEEPSEEK_DEPRECATED_MODELS.has(data.model);
+                            const isDeprecatedDeepSeekModel = resolvedProviderType === 'deepseek' && DEEPSEEK_RETIRED_MODELS.has(data.model);
                             return (
                                 <>
                                     <button style={{ marginTop: 6, padding: '4px 12px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', background: isInList ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--bg-primary)', cursor: 'pointer', fontSize: 11, color: isInList ? 'var(--accent)' : 'var(--text-secondary)' }} onClick={() => {
@@ -2551,7 +2579,7 @@ function ApiConfigForm({ data, onChange }) {
                                         onChange({ ...data, providerConfigs: configs });
                                     }}>{isInList ? text('☑ 已在快切列表', '☑ In quick switch list', '☑ В списке быстрого выбора') : text('☐ 加入快切列表', '☐ Add to quick switch list', '☐ Добавить в быстрый список')}</button>
                                     {isDeprecatedDeepSeekModel && (
-                                        <div style={{ fontSize: 11, color: 'var(--warning, #b45309)', marginTop: 6 }}>{text('当前 DeepSeek 旧模型名将于 2026-07-24 停用，建议改用 deepseek-v4-pro 或 deepseek-v4-flash。', 'The current legacy DeepSeek model name will be retired on 2026-07-24. Use deepseek-v4-pro or deepseek-v4-flash instead.', 'Текущее устаревшее имя модели DeepSeek будет отключено 2026-07-24. Используйте deepseek-v4-pro или deepseek-v4-flash.')}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--warning, #b45309)', marginTop: 6 }}>{t('apiConfig.deepseekRetiredModel')}</div>
                                     )}
                                 </>
                             );
@@ -2616,7 +2644,7 @@ function ApiConfigForm({ data, onChange }) {
                                             const mParams = getModelParams(data.provider, m.id);
                                             const hasParams = !!mParams;
                                             const isEditing = editingModelParams === m.id;
-                                            const isDeprecatedDeepSeekModel = resolvedProviderType === 'deepseek' && DEEPSEEK_DEPRECATED_MODELS.has(m.id);
+                                            const isDeprecatedDeepSeekModel = resolvedProviderType === 'deepseek' && DEEPSEEK_RETIRED_MODELS.has(m.id);
                                             return (
                                                 <div key={m.id}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 'var(--radius-sm, 6px)', cursor: 'pointer', transition: 'background 0.1s', background: isActive ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent' }}
@@ -2639,7 +2667,7 @@ function ApiConfigForm({ data, onChange }) {
                                                         {/* 模型名 */}
                                                         <span style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, color: isActive ? 'var(--accent)' : 'var(--text-primary)', fontWeight: isActive ? 600 : 400, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => { update('model', m.id); }} title={m.isUnavailable ? text(`${m.id}（已保存，但未在本次拉取结果中）`, `${m.id} (saved, but not returned in this fetch)`, `${m.id} (сохранено, но не найдено в текущем списке)`) : text(`使用 ${m.id}`, `Use ${m.id}`, `Использовать ${m.id}`)}>{m.id}</span>
                                                         {m.isUnavailable && <span style={{ fontSize: 9, color: 'var(--warning, #b45309)', background: 'color-mix(in srgb, var(--warning, #b45309) 12%, transparent)', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>{text('未返回', 'Not returned', 'Не возвращено')}</span>}
-                                                        {isDeprecatedDeepSeekModel && <span style={{ fontSize: 9, color: 'var(--warning, #b45309)', background: 'color-mix(in srgb, var(--warning, #b45309) 12%, transparent)', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>{text('2026-07-24 停用', 'Deprecated 2026-07-24', 'Устарело 2026-07-24')}</span>}
+                                                        {isDeprecatedDeepSeekModel && <span style={{ fontSize: 9, color: 'var(--warning, #b45309)', background: 'color-mix(in srgb, var(--warning, #b45309) 12%, transparent)', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>{t('apiConfig.deepseekRetiredBadge')}</span>}
                                                         {/* 模型参数指示 */}
                                                         {hasParams && !isEditing && <span style={{ fontSize: 9, color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>{text('自定义参数', 'Custom params', 'Свои параметры')}</span>}
                                                         {/* 齿轮图标 */}
@@ -2702,6 +2730,7 @@ function ApiConfigForm({ data, onChange }) {
                                                                             { key: 'low', label: 'Low' },
                                                                             { key: 'medium', label: 'Mid' },
                                                                             { key: 'high', label: 'High' },
+                                                                            { key: 'max', label: 'Max' },
                                                                         ].map(opt => (
                                                                             <button key={opt.key ?? 'default'} style={{ padding: '2px 8px', border: (mp.reasoningEffort ?? null) === opt.key ? '1.5px solid var(--accent)' : '1px solid var(--border-light)', borderRadius: 3, background: (mp.reasoningEffort ?? null) === opt.key ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--bg-primary)', cursor: 'pointer', fontSize: 10, color: (mp.reasoningEffort ?? null) === opt.key ? 'var(--accent)' : 'var(--text-secondary)' }} onClick={() => opt.key !== null ? updateParam('reasoningEffort', opt.key) : clearParam('reasoningEffort')}>{opt.label}</button>
                                                                         ))}
@@ -2774,20 +2803,46 @@ function ApiConfigForm({ data, onChange }) {
                                 <div style={{ paddingLeft: 22, marginTop: 6 }}>
                                     <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 3 }}>{t('apiConfig.searchTool') || '搜索工具'}</div>
                                     <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                                        {[
-                                            { key: 'tavily', label: 'Tavily' },
-                                            { key: 'exa', label: 'Exa' },
-                                        ].map(opt => (
-                                            <button key={opt.key} style={{ padding: '4px 10px', border: (data.searchConfig?.tool || 'tavily') === opt.key ? '2px solid var(--accent)' : '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', background: (data.searchConfig?.tool || 'tavily') === opt.key ? 'var(--accent-light)' : 'var(--bg-primary)', cursor: 'pointer', fontSize: 11, fontWeight: (data.searchConfig?.tool || 'tavily') === opt.key ? 600 : 400, color: (data.searchConfig?.tool || 'tavily') === opt.key ? 'var(--accent)' : 'var(--text-primary)', transition: 'all 0.15s' }} onClick={() => onChange({ ...data, searchConfig: { ...(data.searchConfig || {}), tool: opt.key } })}>{opt.label}</button>
+                                        {SEARCH_TOOLS.map(key => (
+                                            <button key={key} style={{ padding: '4px 10px', border: searchTool === key ? '2px solid var(--accent)' : '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', background: searchTool === key ? 'var(--accent-light)' : 'var(--bg-primary)', cursor: 'pointer', fontSize: 11, fontWeight: searchTool === key ? 600 : 400, color: searchTool === key ? 'var(--accent)' : 'var(--text-primary)', transition: 'all 0.15s' }} onClick={() => selectSearchTool(key)}>{SEARCH_TOOL_LABELS[key]}</button>
                                         ))}
                                     </div>
-                                    <FieldInput label={`${(data.searchConfig?.tool || 'Tavily').charAt(0).toUpperCase() + (data.searchConfig?.tool || 'tavily').slice(1)} API Key`} value={data.searchConfig?.apiKey || ''} onChange={v => onChange({ ...data, searchConfig: { ...(data.searchConfig || {}), apiKey: v } })} placeholder={text(`填入 ${data.searchConfig?.tool || 'Tavily'} API Key（多个用逗号分隔可轮询）`, `Enter ${data.searchConfig?.tool || 'Tavily'} API keys. Use commas to rotate multiple keys.`, `Введите API key ${data.searchConfig?.tool || 'Tavily'}. Несколько ключей можно разделить запятыми.`)} secret />
-                                    {!data.searchConfig?.apiKey && (
+                                    {isDeepSeekSearch && (
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, marginBottom: 8, lineHeight: 1.5 }}>{t('apiConfig.searchToolDeepSeekPricing')}</div>
+                                    )}
+                                    {!isDeepSeekSearch && configuredDeepSeek && !data.searchConfig?.apiKey && (
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -4, marginBottom: 8, lineHeight: 1.5 }}>{t('apiConfig.searchDeepSeekSuggest')}</div>
+                                    )}
+                                    <FieldInput label={`${searchToolLabel} API Key`} value={searchApiKey} onChange={v => updateSearchConfig({ [searchKeyField]: v })} placeholder={isDeepSeekSearch && configuredDeepSeek ? t('apiConfig.searchDeepSeekKeyPlaceholder') : text(`填入 ${searchToolLabel} API Key（多个用逗号分隔可轮询）`, `Enter ${searchToolLabel} API keys. Use commas to rotate multiple keys.`, `Введите API key ${searchToolLabel}. Несколько ключей можно разделить запятыми.`)} secret />
+                                    {isDeepSeekSearch && configuredDeepSeek && searchApiKey.trim() === configuredDeepSeek.apiKey && (
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -8, marginBottom: 6, paddingLeft: 2 }}>{t('apiConfig.searchDeepSeekKeyFromProvider')}</div>
+                                    )}
+                                    {!searchApiKey && !(isDeepSeekSearch && configuredDeepSeek) && (
                                         <div style={{ fontSize: 11, color: 'var(--error)', marginTop: -8, marginBottom: 6, paddingLeft: 2 }}>
-                                            <AlertTriangle size={12} style={{ marginRight: 4, verticalAlign: 'text-bottom' }} />{text('当前供应商需要外部搜索 API Key 才能使用联网搜索（', 'This provider needs an external search API key for web search (', 'Этому провайдеру нужен внешний API-ключ поиска для веб-поиска (')}<a href={data.searchConfig?.tool === 'exa' ? 'https://exa.ai' : 'https://tavily.com'} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{text('点此获取', 'get one here', 'получить здесь')}</a>{text('）', ')', ')')}
+                                            <AlertTriangle size={12} style={{ marginRight: 4, verticalAlign: 'text-bottom' }} />{text('当前供应商需要外部搜索 API Key 才能使用联网搜索（', 'This provider needs an external search API key for web search (', 'Этому провайдеру нужен внешний API-ключ поиска для веб-поиска (')}<a href={SEARCH_TOOL_KEY_PAGES[searchTool]} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{text('点此获取', 'get one here', 'получить здесь')}</a>{text('）', ')', ')')}
                                         </div>
                                     )}
-                                    <FieldInput label={text(`${(data.searchConfig?.tool || 'Tavily').charAt(0).toUpperCase() + (data.searchConfig?.tool || 'tavily').slice(1)} API 地址`, `${(data.searchConfig?.tool || 'Tavily').charAt(0).toUpperCase() + (data.searchConfig?.tool || 'tavily').slice(1)} API URL`, `${(data.searchConfig?.tool || 'Tavily').charAt(0).toUpperCase() + (data.searchConfig?.tool || 'tavily').slice(1)} API URL`)} value={data.searchConfig?.baseUrl || ''} onChange={v => onChange({ ...data, searchConfig: { ...(data.searchConfig || {}), baseUrl: v } })} placeholder={data.searchConfig?.tool === 'exa' ? text('https://api.exa.ai（默认，可留空）', 'https://api.exa.ai (default, can be blank)', 'https://api.exa.ai (по умолчанию, можно оставить пустым)') : text('https://api.tavily.com（默认，可留空）', 'https://api.tavily.com (default, can be blank)', 'https://api.tavily.com (по умолчанию, можно оставить пустым)')} />
+                                    <FieldInput label={text(`${searchToolLabel} API 地址`, `${searchToolLabel} API URL`, `${searchToolLabel} API URL`)} value={data.searchConfig?.[searchBaseUrlField] || ''} onChange={v => updateSearchConfig({ [searchBaseUrlField]: v })} placeholder={isDeepSeekSearch
+                                        ? t('apiConfig.searchDeepSeekBaseUrlPlaceholder', { url: configuredDeepSeek?.baseUrl || DEEPSEEK_SEARCH_DEFAULT_BASE_URL })
+                                        : searchTool === 'exa' ? text('https://api.exa.ai（默认，可留空）', 'https://api.exa.ai (default, can be blank)', 'https://api.exa.ai (по умолчанию, можно оставить пустым)') : text('https://api.tavily.com（默认，可留空）', 'https://api.tavily.com (default, can be blank)', 'https://api.tavily.com (по умолчанию, можно оставить пустым)')} />
+                                    {isDeepSeekSearch && (
+                                        <div style={{ marginBottom: 4 }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-primary)' }}>
+                                                <input type="checkbox" checked={isDeepSeekReadWebpageEnabled(data.searchConfig)} onChange={e => updateSearchConfig({ deepseekReadWebpage: e.target.checked })} style={{ margin: 0 }} />
+                                                {t('apiConfig.searchDeepSeekReadWebpage')}
+                                            </label>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, paddingLeft: 22, lineHeight: 1.5 }}>{t('apiConfig.searchDeepSeekReadWebpageDesc')}</div>
+                                            {isDeepSeekReadWebpageEnabled(data.searchConfig) && (
+                                                <div style={{ paddingLeft: 22, marginTop: 6 }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--text-primary)' }}>
+                                                        <input type="checkbox" checked={isDeepSeekReadAfterSearchEnabled(data.searchConfig)} onChange={e => updateSearchConfig({ deepseekReadAfterSearch: e.target.checked })} style={{ margin: 0 }} />
+                                                        {t('apiConfig.searchDeepSeekReadAfterSearch')}
+                                                    </label>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, paddingLeft: 22, lineHeight: 1.5 }}>{t('apiConfig.searchDeepSeekReadAfterSearchDesc')}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )
                         )}
@@ -2898,6 +2953,8 @@ function ApiConfigForm({ data, onChange }) {
                                             <option value="low">Low</option>
                                             <option value="medium">Medium</option>
                                             <option value="high">High</option>
+                                            <option value="xhigh">XHigh</option>
+                                            <option value="max">Max</option>
                                         </select>
                                     </div>
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, paddingLeft: 22 }}>{t('apiConfig.reasoningEffortDesc')}</div>

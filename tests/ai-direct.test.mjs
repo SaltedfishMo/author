@@ -26,7 +26,7 @@ async function fixture(t, timeout = 120000) {
         // fixture ${id}
     `)}`;
     const hooks = registerHooks({ resolve(specifier, context, nextResolve) {
-        if (context.parentURL?.startsWith(moduleUrl) && !specifier.endsWith('ai-stream.js')) return { url: mockUrl, shortCircuit: true };
+        if (context.parentURL?.startsWith(moduleUrl) && !specifier.endsWith('ai-stream.js') && !specifier.endsWith('ai-model-rules.js')) return { url: mockUrl, shortCircuit: true };
         return nextResolve(specifier, context);
     } });
     try { return await import(`${moduleUrl}?fixture=${id}`); }

@@ -962,7 +962,7 @@ const Editor = forwardRef(function Editor({ content, contentReceipt = null, chap
                                 }}
                             >
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)', userSelect: 'none', opacity: 0.6 }}>
-                                    第 {i + 1} 页 / 共 {pageCount} 页
+                                    {text(`第 ${i + 1} 页 / 共 ${pageCount} 页`, `Page ${i + 1} of ${pageCount}`, `Стр. ${i + 1} из ${pageCount}`)}
                                 </span>
                             </div>
                         );

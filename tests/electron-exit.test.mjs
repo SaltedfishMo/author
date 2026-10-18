@@ -28,6 +28,7 @@ function fixture() {
     const context = {
         app, mainWindow: window, ipcMain, isDev: false, log() {},
         serverIdentityVerified: true,
+        lanShareGateway: { close() {} },
         isTrustedAppUrl: url => url === 'http://localhost:33372/',
         sanitizeLogText: String,
         require: name => { assert.equal(name, 'electron-updater'); return { autoUpdater: updater }; },

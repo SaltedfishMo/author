@@ -40,7 +40,7 @@ export function utf8ByteLength(str) {
 const PUSH_BODY_OVERHEAD = utf8ByteLength(JSON.stringify({ items: [] }));
 
 // 推送切批：同时限制条数和请求体字节数（请求体即 JSON.stringify({ items: batch })）。
-// 只按条数切的话，章节一长整批就超过后端 ~1MB 上限，重试时还是同一批，永远推不上去。
+// 只按条数切的话，章节一长整批就可能超过服务端的请求体上限，重试时还是同一批，永远推不上去。
 // 单条就放不进一个请求的条目放进 oversized，不发送，由调用方明确报错。
 export function splitPushBatches(items, { maxItems, maxBytes }) {
     const batches = [];

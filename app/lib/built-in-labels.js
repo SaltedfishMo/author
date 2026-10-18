@@ -32,6 +32,8 @@ const WORK_NAME_GROUPS = [
 
 const ENDPOINT_NAME_GROUPS = [
     { zh: '迁移的兼容端点', en: 'Migrated compatible endpoint', ru: 'Перенесённый совместимый эндпоинт' },
+    { zh: '零一万物（已停服）', en: '01.AI Yi (discontinued)', ru: '01.AI Yi (сервис закрыт)' },
+    { zh: 'GitHub Models（已停服）', en: 'GitHub Models (discontinued)', ru: 'GitHub Models (сервис закрыт)' },
 ];
 
 const ICON_LABELS = [
