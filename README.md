@@ -14,17 +14,124 @@
 
 ## 💬 Why I Built This
 
-I've been using AI for a while now — from the early days of ChatGPT 3.5, to Gemini 2.0 Exp Thinking, and eventually settling on Gemini 2.5 Pro Thinking after the ChatGPT o1 era.
+I have been using AI for a long time. Starting with ChatGPT 3.5, I have written fiction with almost every generation of mainstream models.
 
-As a novelist, I care deeply about AI's ability to handle language. Novels are long, so I need models with strong context windows and high recall. But what truly moved me about Gemini was its characters — there were moments when the words on screen made me want to cry. That's emotional resonance. I need writing that embraces the full complexity of being human.
+<details>
+<summary><b>📝 Models I've Used (personal notes, October 2026)</b></summary>
 
-Then the coding-focused trend took over. Every company started optimizing for code. I thought it was a good thing — until Gemini 3.1 Pro started describing its characters in biological and psychological terminology. Code-optimized models had begun deconstructing humans into biological components. Claude Opus 4.6 was even worse: every character spoke with peak efficiency — concise, economical, not like a human, but like a machine wearing a human mask.
+These are my own impressions from writing fiction, not a rigorous benchmark. Models keep changing, and my views will change with them.
 
-**I could no longer see the models understanding human complexity. They didn't care about what humans *do* — only what humans *are*. They stopped showing personality through behavior and emotion, and instead slapped simple definitions onto human beings.**
+**ChatGPT 3.5 → GPT-4o**
 
-I watched the versatility of these models being gutted. I don't want us to live in a cold world of code. I built this project so that AI can preserve **our own language** — beyond the mechanical operators.
+I started with ChatGPT 3.5. Then came GPT-4o, which I used continuously for a month or two. It was the first model that made me think, "So this is artificial intelligence."
 
-> To all the authors, screenwriters, hobbyists, readers, and players who use this project: I hope you can bring out the best of your craft, create works with a human touch, and keep the flame of our language alive. 🔥
+**Gemini 2.0 Pro → 2.0 Thinking → DeepSeek R1**
+
+Gemini 2.0 Pro had no reasoning yet. It had a 2-million-token context window, but started forgetting things at around 100k. After that I used 2.0 Thinking, and DeepSeek R1 in early 2025.
+
+**Gemini 2.5 Pro: the first model that brought characters to life**
+
+After 2.5 Pro came out, especially the 0325 version from March 2025, I used it almost every day. At the time it was strong at writing and everything else. It had a long context, and it was the first model that could write lively character reactions and real emotion. During that period I didn't use other providers apart from some testing. For example, I used o3 mainly for research work, where it was strong.
+
+**Characters written as biological structures**
+
+After o3, many models tended to write people as a pile of biological parts. DeepSeek had this problem too: how many millimeters the pupils contracted, how many extra heartbeats, the exact pulse rate. By Gemini 3.0 it was obvious, with constant mentions of limbs and spines. Claude Opus 4.6 was the worst at launch, but improved a lot after ten days to two weeks. I don't know whether that came from post-training adjustments.
+
+**Gemini 3.0 / 3.1: exaggerated and extreme**
+
+Gemini's characters tend to be exaggerated and extreme. This is almost common knowledge among writers, and some of it remains in Gemini 4 Argon. Gemini is very popular with role-play users, and under its terms, free-tier data can be used to improve the model. My personal guess is that this affects its writing tendencies, though of course it is only a guess.
+
+**Claude Opus 4.6: the only model that truly cares about foreshadowing**
+
+After that improvement, its detail became very rich. It is a steady model with real weight. Until Opus 5.5 came out, it led in writing.
+
+It is the only model that has written sentences that truly moved me. Several hundred thousand characters into a novel, it would suddenly bring back a line I had never emphasized and tie it to later plot and to a character's response, and the character gained depth. It was also the first model that raised the ceiling of my writing.
+
+It builds characters through extremely rich psychological description and stream of consciousness, supported by actions and dialogue. The weakness is that characters look calm on the surface, with their reactions kept inside. When you act toward a character or speak to them, they may reply with a single word, terse and brief, while their inner life stays rich. Some people say this makes characters feel dead. I disagree. What matters most in a person is the inner life. A rich inner life makes a character feel more alive. What it lacks is only the surface layer.
+
+Gemini is the opposite. It focuses most on the surface, or rather stays on the surface. Its characters react in exaggerated, extreme ways, which makes people feel they are very alive. To me, this kind of characterization is too shallow. Still, for power fantasy (爽文) in the narrow sense, which relies on surface exaggeration for its payoff, it is quite useful.
+
+Since August 2026, Opus 4.6 has been changing, most noticeably from September. Character responses are less cold, but the stream-of-consciousness writing has clearly decreased, and characters have less depth than before. I now mainly use it for foreshadowing, and for daily writing Opus 5.5 works better for me.
+
+**Opus 4.7 → 4.8 → 5: a steady decline**
+
+The generations after 4.6 got noticeably worse. Opus 5 is full of self-invented abbreviations and jargon. Never mind fiction; even programmers can't follow what it writes.
+
+**Opus 5.5: the second model that raised my ceiling**
+
+At first I didn't think much of it. Its language felt comfortable, and clearly a lot of work went into its language, but its ability to expand scenes was not enough. Once I used it in real writing, I found it has a lot to offer. It uses much less stream of consciousness than 4.6, and character reactions are somewhat better, but it sometimes produces several one-word replies like "Mm." in a row, and it hasn't quite found the right balance. It also cares less about foreshadowing than 4.6.
+
+Now I'm more used to 5.5. 4.6 and 5.5 complement each other. Add Gemini's lively reactions, blend the three, and that would be a true generational leap.
+
+**GPT-5 to GPT-6 Ultra: more human now, but rushes the plot and preaches**
+
+From GPT-5 to 5.4, it barely spoke like a human. 5.5 was better, and 5.6 is fairly good. 5.6 and GPT-6 Ultra have much less AI flavor, though it is still there.
+
+GPT has two long-standing problems:
+
+- **It keeps pushing the plot forward.** It doesn't understand foreshadowing or setup, as if it wants to write the ending in chapter one.
+- **It preaches through characters.** It doesn't lecture you directly. It quietly rewrites the characters. A gang boss who kills and burns without any limits suddenly develops firm principles in its hands, and the character's mouth is used to tell the author "this is immoral." Fiction inevitably has dark plots, so this seriously gets in the way. Opus 5.5 does this a little too, but less than GPT.
+
+**Gemini 4 Argon: good at power fantasy, saves time**
+
+It is good at East Asian web-fiction power fantasy in the narrow sense. It knows where the plot should go without much effort, and its world knowledge is strong. It describes appearance in a character-portrait style (立绘): concise, punchy, and vivid, and it does this on its own without prompting. Claude won't write that way unless reminded. It also likes to push the plot forward.
+
+Power fantasy in the broader sense, such as the emotional payoff of foreshadowing or deeply written characters, is not its strength. It can save you time, but it can't raise your ceiling. For characters with depth, Opus 4.6 and 5.5 are still the ones to use.
+
+**Open models: usable now, but pacing still lags**
+
+I keep testing open models, and their pacing still falls short. DeepSeek V4.1 is finally usable, but its output is very short (the official explanation is that output was optimized and shortened). After a few rounds it settles at around 300 Chinese characters, which is exhausting for fiction. Its wording is colloquial, but it explains things clearly. Kimi K3 has a great reputation, but its fiction prose is very colloquial, and doggerel-like lines sometimes slip in.
+
+</details>
+
+<details>
+<summary><b>💡 AI Flavor, Prompts, and Testing</b></summary>
+
+**What "AI flavor" is**
+
+Many people talk about "AI flavor" and say you should avoid "not X, but Y." AI flavor means putting a correct usage in the wrong place: "not X, but Y," ellipses, em dashes, or combinations like "knuckles turning white." These are all normal human expressions. They become AI flavor only when used in the wrong place. Writing differs from code: change a pause, cut a few words, or reorder a sentence, and the meaning becomes completely different.
+
+AI flavor is also not the measure of writing ability. Today's AI is not AGI, so some AI flavor is normal. Just revise it yourself. If a model's output takes more work to fix than rewriting it yourself, switch to a model that feels better to use and actually saves you time or raises your ceiling.
+
+**No need to buy prompts**
+
+Many people sell prompts online, and with every new model generation people rush to buy them. There is no need. The underlying logic of prompts stays the same. At heart they are a core framework. As long as you can clearly say what you want the model to do, you can have the model write the prompt for you.
+
+My current prompt was first written by GPT-4o, then refined with Gemini 2.5 Pro's Deep Research. I have kept iterating on that framework ever since, and it works with every model generation.
+
+**What matters is in-context correction**
+
+Stuffing a model with rules like "be human," "no AI flavor," or "don't over-stylize" has limited effect. These phrases are subjective. Even people don't share a single standard for them, and the model interprets them differently each time.
+
+For models like Opus 5.5 that understand human language well, few-shot examples and in-context correction work better: when you notice it going off track while writing, correct it right there. With an example to go on, it knows what was wrong and which direction to take, and its understanding gets closer and closer to what you want. Older models still rely more on presets, and in some scenarios such as role-play, presets remain important.
+
+**Do your own testing**
+
+The tests popular on social media, such as 3D scenes or a pelican riding a bicycle, are fine for checking whether a model has gotten worse. Don't use them to judge writing ability. Each company trains in a different direction with different data proportions.
+
+Maintain your own set of tests, write with your own material, and form your own judgment. Don't rely on fully automated tests where the model runs on its own and you only look at the results. Take part and guide it yourself. At first I mainly tested whether a model could write at length, since expansion reflects how well it develops a plot. That worked well for Opus 4.6. By Opus 5.5 it was no longer enough, so I switched to having the models take part in real writing and comparing them systematically.
+
+</details>
+
+### What Good Writing Looks Like
+
+- **Characters should stand on their actions and inner life.** Personality and emotion should come through in what they do, what they say, and what they think. Giving a person a label, or writing only physical reactions, does not produce a real person.
+- **Foreshadowing has to pay off.** Several hundred thousand characters in, bring back an unremarkable line from earlier and connect it to the current plot, and the character gains depth.
+- **A good model raises the author's ceiling.** One sentence it writes can make you think of a better way to write.
+
+### Author's Direction
+
+The project currently focuses on assisted writing. Today's models are not yet capable enough to create on their own, so human-led, model-assisted writing is an important direction for Author. Of course, this will be weighed and adjusted as model capabilities improve.
+
+### Why Writing Matters
+
+Writing is an important module for measuring a model's generality. Every story is a different world, and every world has its own physical rules. Writing tests a model's understanding of the world, of space and time, and of characters' emotions. It also tests attention, recall, and long-context memory.
+
+The point of artificial general intelligence lies in the word "general."
+
+I'm not a professional writer. I've only written a few web novels, which I think qualifies me to take part in this kind of evaluation. My background is in science and engineering, and I have some interdisciplinary ability, so I believe these views have some reference value. All of the above is my personal opinion.
+
+> I hope everyone who uses this project can write works with human warmth and keep the flame of our language alive. Beyond writers, I hope people in every field will do their part as well. 🔥
 
 ---
 
