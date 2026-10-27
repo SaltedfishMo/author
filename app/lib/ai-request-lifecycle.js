@@ -1,6 +1,7 @@
 // 上游连续这么久没有任何输出才判超时；流式输出期间每收到数据就重新计时，
 // 慢速模型（如只用 CPU 的本地模型）持续输出时不会被中途切断。
-export const AI_REQUEST_TIMEOUT_MS = 120_000;
+// 长篇上下文的处理、排队和深度思考也可能在首个数据包之前耗时数分钟。
+export const AI_REQUEST_TIMEOUT_MS = 300_000;
 
 export function createGenerationLifecycle(parentSignal, timeoutMs = AI_REQUEST_TIMEOUT_MS) {
     const controller = new AbortController();

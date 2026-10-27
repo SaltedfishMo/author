@@ -78,6 +78,34 @@ test('timeout interrupts a blocked read and reports incomplete instead of cancel
     assert.equal(generationAbortResponse(lifecycle).status, 504);
 });
 
+test('long-input processing can take more than two minutes before the first response', async t => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const lifecycle = createGenerationLifecycle();
+    t.after(() => lifecycle.dispose());
+
+    // Simulate waiting for upstream headers while the model processes a long manuscript.
+    t.mock.timers.tick(180_000);
+    const upstream = new Response(sse(openText('规划内容')) + sse('[DONE]'));
+    const events = await collect(readAiEvents(streamAiResponse(upstream, lifecycle, createOpenAiMapper())));
+    assert.equal(events[0].text, '规划内容');
+    assert.deepEqual(events.at(-1), { status: 'done' });
+});
+
+test('default waiting time stays bounded and activity renews the idle budget', t => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const lifecycle = createGenerationLifecycle();
+    t.after(() => lifecycle.dispose());
+
+    t.mock.timers.tick(180_000);
+    assert.equal(lifecycle.signal.aborted, false);
+    lifecycle.touch();
+    t.mock.timers.tick(299_999);
+    assert.equal(lifecycle.signal.aborted, false);
+    t.mock.timers.tick(1);
+    assert.equal(lifecycle.signal.reason.name, 'TimeoutError');
+    assert.equal(generationAbortResponse(lifecycle).status, 504);
+});
+
 test('a slow model that keeps producing output is not cut off by the timeout', async () => {
     const lifecycle = createGenerationLifecycle(undefined, 40);
     const upstream = new Response(new ReadableStream({

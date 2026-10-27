@@ -5,7 +5,8 @@ import { streamAiResponse, createClaudeMapper } from '../../../lib/ai-stream.js'
 // 使用 Anthropic 兼容格式 (/v1/messages)
 
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+// 托管层也要为长篇上下文处理和完整流式回复留出时间。
+export const maxDuration = 300;
 
 import { applyContentSafety } from '../../../lib/content-safety';
 import { proxyFetch } from '../../../lib/proxy-fetch';

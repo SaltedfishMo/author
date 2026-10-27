@@ -6,7 +6,8 @@ import { streamAiResponse, createOpenAiMapper } from '../../lib/ai-stream.js';
 // 支持 Function Calling 搜索循环 + OpenAI 内置搜索
 
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+// 托管层也要为长篇上下文处理和完整流式回复留出时间。
+export const maxDuration = 300;
 
 import { applyContentSafety } from '../../lib/content-safety';
 import { proxyFetch } from '../../lib/proxy-fetch';
