@@ -26,7 +26,7 @@ async function fixture(t, timeout = 120000) {
         // fixture ${id}
     `)}`;
     const hooks = registerHooks({ resolve(specifier, context, nextResolve) {
-        if (context.parentURL?.startsWith(moduleUrl) && !specifier.endsWith('ai-stream.js') && !specifier.endsWith('ai-model-rules.js')) return { url: mockUrl, shortCircuit: true };
+        if (context.parentURL?.startsWith(moduleUrl) && !['ai-stream.js', 'ai-model-rules.js', 'ai-upstream-errors.js'].some(name => specifier.endsWith(name))) return { url: mockUrl, shortCircuit: true };
         return nextResolve(specifier, context);
     } });
     try { return await import(`${moduleUrl}?fixture=${id}`); }
@@ -92,4 +92,17 @@ test('connection failure before direct response still uses the existing proxy fa
     const response = await aiFetch('/api/ai', request());
     await response.text();
     assert.deepEqual(calls, ['https://example.test/v1/chat/completions', '/api/ai']);
+});
+
+test('direct connection test reports insufficient balance by code without a proxy retry', async t => {
+    const { testAiConnection } = await fixture(t);
+    const calls = [];
+    t.mock.method(globalThis, 'fetch', async url => {
+        calls.push(url);
+        return new Response(JSON.stringify({ error: { message: 'Insufficient Balance', type: 'unknown_error', code: 'invalid_request_error' } }), { status: 402 });
+    });
+    const result = await testAiConnection({ provider: 'deepseek', apiKey: 'synthetic', baseUrl: 'https://example.test/v1', model: 'synthetic' });
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'AI_INSUFFICIENT_QUOTA');
+    assert.deepEqual(calls, ['https://example.test/v1/chat/completions']);
 });

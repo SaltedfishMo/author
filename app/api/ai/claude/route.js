@@ -12,6 +12,7 @@ import { proxyFetch } from '../../../lib/proxy-fetch';
 import { rotateKey } from '../../../lib/keyRotator';
 import { isOutboundRequestBlocked, isServerCredentialBlocked, resolveAiCredential, safeUpstreamDetail } from '../../../lib/server-security.mjs';
 import { buildClaudeRequestParams } from '../../../lib/ai-model-rules.js';
+import { isInsufficientBalanceError } from '../../../lib/ai-upstream-errors.js';
 import { assertReadableAfterSearch, createToolRoundGuard, formatWebpageForModel, readableUrlKey, runDeepSeekFetch, runDeepSeekSearch, searchFailureToolText } from '../../../lib/web-search.js';
 
 // Anthropic 格式的搜索工具定义
@@ -364,7 +365,9 @@ function errorResponse(status, errorText = '') {
     let code = '';
     let detail = '';
 
-    if (status === 401) { errMsg = 'API Key 无效或已过期，请检查后重新填写'; code = 'AI_INVALID_KEY'; }
+    // 余额不足各家状态码不一（400/402/403/429 都有），先看错误体
+    if (isInsufficientBalanceError(errorText)) { errMsg = 'API 账户余额不足，请充值后重试'; code = 'AI_INSUFFICIENT_QUOTA'; }
+    else if (status === 401) { errMsg = 'API Key 无效或已过期，请检查后重新填写'; code = 'AI_INVALID_KEY'; }
     else if (status === 403) { errMsg = 'API Key 无权限或已被禁用'; code = 'AI_NO_PERMISSION'; }
     else if (status === 429) { errMsg = '请求频率过高或额度不足，请稍后再试'; code = 'AI_RATE_LIMIT'; }
     else if (status === 529) { errMsg = 'Anthropic API 过载，请稍后再试'; code = 'AI_OVERLOADED'; }
@@ -373,8 +376,7 @@ function errorResponse(status, errorText = '') {
         try {
             const errObj = JSON.parse(errorText);
             const msg = safeUpstreamDetail(errObj?.error?.message || '', 300);
-            const upstreamCode = errObj?.error?.code || '';
-            if (upstreamCode === 'insufficient_user_quota' || msg.includes('额度') || msg.includes('quota')) {
+            if (msg.includes('额度') || msg.includes('quota')) {
                 errMsg = 'API 账户余额不足，请充值后重试'; code = 'AI_INSUFFICIENT_QUOTA';
             } else if (msg.includes('Context window is full') || msg.includes('context_length') || msg.includes('too many tokens')) {
                 errMsg = '上下文过长：设定集 + 前文 + 对话内容超出模型上下文窗口，请减少勾选的参考内容或清空对话历史'; code = 'AI_CONTEXT_TOO_LONG';

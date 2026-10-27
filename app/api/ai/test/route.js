@@ -4,6 +4,7 @@ import { proxyFetch } from '../../../lib/proxy-fetch';
 import { rotateKey } from '../../../lib/keyRotator';
 import { isOutboundRequestBlocked, safeUpstreamDetail } from '../../../lib/server-security.mjs';
 import { buildClaudeRequestParams, DEEPSEEK_DEFAULT_MODEL, isDeepSeekRequest, usesMaxCompletionTokens } from '../../../lib/ai-model-rules.js';
+import { isInsufficientBalanceError } from '../../../lib/ai-upstream-errors.js';
 
 const OPENAI_DEFAULT_TEST_MODEL = 'gpt-6-luna';
 const CLAUDE_DEFAULT_TEST_MODEL = 'claude-opus-5-5';
@@ -100,6 +101,9 @@ async function testClaudeCompatible(apiKey, baseUrl, model, proxyUrl) {
 
 async function connectionError(response) {
     const errorText = await response.text();
+    if (isInsufficientBalanceError(errorText)) {
+        return NextResponse.json({ success: false, error: 'API 账户余额不足，请充值后重试', code: 'AI_INSUFFICIENT_QUOTA' });
+    }
     let upstream = null;
     try {
         upstream = safeUpstreamDetail(JSON.parse(errorText)?.error?.message || '', 300) || null;

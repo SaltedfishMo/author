@@ -12,6 +12,7 @@ import { proxyFetch } from '../../../lib/proxy-fetch';
 import { rotateKey } from '../../../lib/keyRotator';
 import { isOutboundRequestBlocked, isServerCredentialBlocked, resolveAiCredential, safeUpstreamDetail } from '../../../lib/server-security.mjs';
 import { buildGeminiThinkingConfig } from '../../../lib/ai-model-rules.js';
+import { isInsufficientBalanceError } from '../../../lib/ai-upstream-errors.js';
 
 async function handlePOST(request) {
     const lifecycle = createGenerationLifecycle(request.signal);
@@ -89,7 +90,9 @@ async function handlePOST(request) {
             let errMsg = '';
             let code = '';
             let detail = '';
-            if (response.status === 400) {
+            if (isInsufficientBalanceError(errorText)) {
+                errMsg = 'API 账户余额不足，请充值后重试'; code = 'AI_INSUFFICIENT_QUOTA';
+            } else if (response.status === 400) {
                 try {
                     const errObj = JSON.parse(errorText);
                     detail = safeUpstreamDetail(errObj?.error?.message || errorText, 300);
