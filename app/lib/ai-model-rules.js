@@ -108,6 +108,22 @@ export function buildGeminiThinkingConfig(model, reasoningEffort) {
     return { thinkingBudget: geminiThinkingBudget(id, reasoningEffort) };
 }
 
+// ==================== MiniMax ====================
+
+/**
+ * MiniMax M3 及以后的思考写法（两种 API 格式通用）：
+ * - 'effort'：M3.1-Flash 起的 Flash 模型始终思考，只能调深浅；不传默认 max，传 none 或关闭思考返回 400
+ * - 'toggle'：MiniMax-M3 只有思考开关，不认 effort
+ * M2.x 即将下线，返回 null，沿用原有写法。
+ */
+function getMiniMaxThinkingMode(model) {
+    const match = normalizeModelId(model).match(/minimax-m(\d+)(?:\.(\d+))?(-flash)?/);
+    if (!match) return null;
+    const version = Number(match[1]) + Number(match[2] || 0) / 10;
+    if (version < 3) return null;
+    return match[3] && version >= 3.1 ? 'effort' : 'toggle';
+}
+
 // ==================== OpenAI 兼容 chat/completions ====================
 
 /** OpenAI 推理系列（GPT-5 及以后、o 系列）只认 max_completion_tokens，不接受 max_tokens。 */
@@ -127,13 +143,19 @@ export function normalizeOpenAiReasoningEffort(model, reasoningEffort) {
         }
         return geminiThinkingLevel(id, reasoningEffort);
     }
+    const miniMaxMode = getMiniMaxThinkingMode(id);
+    if (miniMaxMode === 'effort') return reasoningEffort === 'none' ? 'low' : reasoningEffort;
+    // MiniMax-M3 不认 reasoning_effort，关闭思考改发 thinking.disabled
+    if (miniMaxMode === 'toggle') return null;
     return reasoningEffort;
 }
 
 /** OpenAI 兼容请求的公共参数（与 app/lib/ai-direct.js 直连共用）。 */
 export function buildOpenAiCompatibleParams({ model, maxTokens, temperature, topP, reasoningEffort }) {
     const isDeepSeekThinking = isDeepSeekThinkingModel(model);
-    const thinkingType = isDeepSeekThinking ? (reasoningEffort === 'none' ? 'disabled' : 'enabled') : null;
+    const thinkingType = isDeepSeekThinking
+        ? (reasoningEffort === 'none' ? 'disabled' : 'enabled')
+        : (reasoningEffort === 'none' && getMiniMaxThinkingMode(model) === 'toggle' ? 'disabled' : null);
     const thinkingEnabled = thinkingType === 'enabled';
     const effort = isDeepSeekThinking && reasoningEffort === 'none'
         ? null
@@ -155,6 +177,8 @@ const CLAUDE_EFFORTS_FULL = ['low', 'medium', 'high', 'xhigh', 'max'];
 const CLAUDE_EFFORTS_46 = ['low', 'medium', 'high', 'max'];
 const CLAUDE_LEGACY_MAX_TOKENS = 8192;
 const CLAUDE_DEFAULT_MAX_TOKENS = 32000;
+// MiniMax 的思考也计入 max_tokens，默认 max 档想得很久，额度太小只剩思考、没有正文
+const MINIMAX_DEFAULT_MAX_TOKENS = 65536;
 const CLAUDE_MIN_THINKING_BUDGET = 1024;
 const CLAUDE_THINKING_BUDGETS = { low: 2048, medium: 8192, high: 32768, xhigh: 32768, max: 32768 };
 
@@ -182,6 +206,15 @@ export function parseClaudeModel(model) {
  * - sampling：'none' 不发 temperature/top_p；'single' 两者只发一个；'both' 照旧
  */
 export function getClaudeModelRules(model) {
+    const miniMaxMode = getMiniMaxThinkingMode(model);
+    if (miniMaxMode) {
+        // 采样参数 MiniMax 不生效；M3 用 thinking 开关，M3.1-Flash 无法关闭思考，降到 low
+        return {
+            recognized: true, thinking: 'adaptive', sampling: 'none', summarizeThinking: false, defaultMaxTokens: MINIMAX_DEFAULT_MAX_TOKENS,
+            ...(miniMaxMode === 'effort' ? { offMode: 'lowEffort', efforts: CLAUDE_EFFORTS_FULL } : { offMode: 'disabled', efforts: [] }),
+        };
+    }
+
     const info = parseClaudeModel(model);
     const legacy = { recognized: false, thinking: 'budget', offMode: 'omit', sampling: 'both', efforts: [], summarizeThinking: false, defaultMaxTokens: CLAUDE_LEGACY_MAX_TOKENS };
     if (!info) return legacy;
@@ -243,7 +276,8 @@ export function buildClaudeRequestParams({ model, maxTokens, temperature, topP, 
             else if (rules.offMode === 'lowEffort') params.output_config = { effort: clampClaudeEffort(rules.efforts, 'low') };
         } else if (isEffortOn(reasoningEffort)) {
             params.thinking = rules.summarizeThinking ? { type: 'adaptive', display: 'summarized' } : { type: 'adaptive' };
-            params.output_config = { effort: clampClaudeEffort(rules.efforts, reasoningEffort) };
+            const effort = clampClaudeEffort(rules.efforts, reasoningEffort);
+            if (effort) params.output_config = { effort };
             thinkingOn = true;
         }
     } else if (isEffortOn(reasoningEffort)) {
