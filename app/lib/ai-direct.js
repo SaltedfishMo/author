@@ -14,6 +14,7 @@
 
 import { createGenerationLifecycle, generationAbortResponse } from './ai-request-lifecycle.js';
 import { streamAiResponse, createOpenAiMapper } from './ai-stream.js';
+import { isInsufficientBalanceError } from './ai-upstream-errors.js';
 import { apiPath } from './api-base';
 import { IS_OFFICIAL_WEB } from './deployment-target';
 import { rotateKey } from './keyRotator';
@@ -169,6 +170,9 @@ export async function testAiConnection(apiConfig) {
         try { data = JSON.parse(responseText); } catch { /* 上游可能返回纯文本 */ }
 
         if (!response.ok) {
+            if (isInsufficientBalanceError(responseText)) {
+                return { success: false, error: 'API 账户余额不足，请充值后重试', code: 'AI_INSUFFICIENT_QUOTA' };
+            }
             const upstreamError = data?.error?.message || data?.message || responseText.trim();
             return upstreamError
                 ? { success: false, error: upstreamError }

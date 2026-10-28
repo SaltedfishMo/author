@@ -6,13 +6,15 @@ import { streamAiResponse, createOpenAiMapper } from '../../lib/ai-stream.js';
 // 支持 Function Calling 搜索循环 + OpenAI 内置搜索
 
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+// 托管层也要为长篇上下文处理和完整流式回复留出时间。
+export const maxDuration = 300;
 
 import { applyContentSafety } from '../../lib/content-safety';
 import { proxyFetch } from '../../lib/proxy-fetch';
 import { rotateKey } from '../../lib/keyRotator';
 import { isOutboundRequestBlocked, isServerCredentialBlocked, resolveAiCredential, safeUpstreamDetail } from '../../lib/server-security.mjs';
 import { buildOpenAiCompatibleParams, isDeepSeekRequest, isDeepSeekThinkingMode } from '../../lib/ai-model-rules.js';
+import { isInsufficientBalanceError } from '../../lib/ai-upstream-errors.js';
 import { assertReadableAfterSearch, createToolRoundGuard, formatWebpageForModel, readableUrlKey, runDeepSeekFetch, runDeepSeekSearch, searchFailureToolText } from '../../lib/web-search.js';
 
 // Function Calling 搜索工具定义
@@ -393,7 +395,9 @@ function errorResponse(status, errorText = '') {
     let code = '';
     let detail = '';
 
-    if (status === 401) { errMsg = 'API Key 无效或已过期，请检查后重新填写'; code = 'AI_INVALID_KEY'; }
+    // 余额不足各家状态码不一（402/403/429 都有），先看错误体
+    if (isInsufficientBalanceError(errorText)) { errMsg = 'API 账户余额不足，请充值后重试'; code = 'AI_INSUFFICIENT_QUOTA'; }
+    else if (status === 401) { errMsg = 'API Key 无效或已过期，请检查后重新填写'; code = 'AI_INVALID_KEY'; }
     else if (status === 429) { errMsg = '请求频率过高或额度不足，请稍后再试'; code = 'AI_RATE_LIMIT'; }
 
     // 尝试从上游错误体中提取具体原因
@@ -401,9 +405,8 @@ function errorResponse(status, errorText = '') {
         try {
             const errObj = JSON.parse(errorText);
             const msg = safeUpstreamDetail(errObj?.error?.message || '', 300);
-            const upstreamCode = errObj?.error?.code || '';
 
-            if (upstreamCode === 'insufficient_user_quota' || msg.includes('额度') || msg.includes('quota')) {
+            if (msg.includes('额度') || msg.includes('quota')) {
                 errMsg = 'API 账户余额不足，请充值后重试'; code = 'AI_INSUFFICIENT_QUOTA';
             } else if (msg.includes('Context window is full') || msg.includes('context_length')) {
                 errMsg = '上下文过长：设定集 + 前文 + 对话内容超出模型上下文窗口，请减少勾选的参考内容或清空对话历史'; code = 'AI_CONTEXT_TOO_LONG';

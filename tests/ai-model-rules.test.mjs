@@ -197,3 +197,44 @@ test('Claude 兼容端点上的非 Claude 模型保持原有写法（budget_toke
         max_tokens: 8192, thinking: { type: 'enabled', budget_tokens: 4096 }, top_p: 0.95,
     });
 });
+
+// ==================== MiniMax ====================
+
+test('MiniMax M3.1-Flash（OpenAI 格式）：思考档位照传，none 降到 low，不发会被拒绝的关闭思考', () => {
+    assert.deepEqual(buildOpenAiCompatibleParams({ model: 'MiniMax-M3.1-Flash', reasoningEffort: 'none' }), { reasoning_effort: 'low' });
+    assert.deepEqual(buildOpenAiCompatibleParams({ model: 'minimax/minimax-m3.1-flash-preview', reasoningEffort: 'max' }), { reasoning_effort: 'max' });
+    assert.deepEqual(buildOpenAiCompatibleParams({ model: 'MiniMax-M3.1-Flash', reasoningEffort: 'auto' }), {});
+    for (const effort of EFFORTS) {
+        const params = buildOpenAiCompatibleParams({ model: 'MiniMax-M3.1-Flash', reasoningEffort: effort });
+        assert.notEqual(params.reasoning_effort, 'none', effort);
+        assert.equal('thinking' in params, false, effort);
+    }
+});
+
+test('MiniMax-M3（OpenAI 格式）：不发 reasoning_effort，关闭思考发 thinking.disabled；M2.x 保持原有写法', () => {
+    assert.deepEqual(buildOpenAiCompatibleParams({ model: 'MiniMax-M3', reasoningEffort: 'none' }), { thinking: { type: 'disabled' } });
+    assert.deepEqual(buildOpenAiCompatibleParams({ model: 'minimax-m3', reasoningEffort: 'high' }), {});
+    assert.deepEqual(buildOpenAiCompatibleParams({ model: 'MiniMax-M2.7', reasoningEffort: 'high' }), { reasoning_effort: 'high' });
+});
+
+test('MiniMax M3 系列（Anthropic 格式）：默认给足输出额度，档位用 output_config.effort，不发 budget_tokens', () => {
+    // 思考计入 max_tokens，8192 不够长篇任务想完再写正文；采样参数 MiniMax 不生效，不再发送
+    assert.deepEqual(buildClaudeRequestParams({ model: 'MiniMax-M3.1-Flash', temperature: 0.7, topP: 0.9 }), { max_tokens: 65536 });
+    assert.deepEqual(buildClaudeRequestParams({ model: 'MiniMax-M3.1-Flash', reasoningEffort: 'medium' }), {
+        max_tokens: 65536, thinking: { type: 'adaptive' }, output_config: { effort: 'medium' },
+    });
+    assert.deepEqual(buildClaudeRequestParams({ model: 'MiniMax-M3.1-Flash', reasoningEffort: 'none' }), { max_tokens: 65536, output_config: { effort: 'low' } });
+    assert.deepEqual(buildClaudeRequestParams({ model: 'MiniMax-M3', reasoningEffort: 'high' }), { max_tokens: 65536, thinking: { type: 'adaptive' } });
+    assert.deepEqual(buildClaudeRequestParams({ model: 'MiniMax-M3', reasoningEffort: 'none' }), { max_tokens: 65536, thinking: { type: 'disabled' } });
+    assert.deepEqual(buildClaudeRequestParams({ model: 'MiniMax-M3', maxTokens: 4096 }), { max_tokens: 4096 });
+    for (const model of ['MiniMax-M3.1-Flash', 'MiniMax-M3']) {
+        for (const effort of EFFORTS) {
+            const params = buildClaudeRequestParams({ model, reasoningEffort: effort });
+            assert.equal('budget_tokens' in (params.thinking || {}), false, `${model}/${effort}`);
+            assert.ok(!params.output_config || params.output_config.effort, `${model}/${effort}`);
+        }
+    }
+    for (const effort of EFFORTS) {
+        assert.notEqual(buildClaudeRequestParams({ model: 'MiniMax-M3.1-Flash', reasoningEffort: effort }).thinking?.type, 'disabled', effort);
+    }
+});
