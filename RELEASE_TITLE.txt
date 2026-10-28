@@ -1,1 +1,1 @@
-安全更新，适配各家新模型，新增 DeepSeek 联网搜索 | Security fixes, support for current AI models, and DeepSeek web search
+放宽 AI 生成超时，修复 MiniMax 新模型和余额不足提示 | Longer AI generation timeout, fixes for new MiniMax models and low-balance messages
