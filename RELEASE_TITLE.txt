@@ -1,1 +1,1 @@
-放宽 AI 生成超时，修复 MiniMax 新模型和余额不足提示 | Longer AI generation timeout, fixes for new MiniMax models and low-balance messages
+安卓端：修复切到设定卡顿，支持 DeepSeek 内置联网，全新首屏 | Android: smoother Lore tab, DeepSeek built-in web search, new welcome screen
